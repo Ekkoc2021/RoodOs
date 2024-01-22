@@ -1,0 +1,28 @@
+{
+    "files.associations": {
+        "linkedlist.h": "c",
+        "stdlib.h": "c",
+        "stack.h": "c",
+        "*.tcc": "c",
+        "deque": "c",
+        "string": "c",
+        "unordered_map": "c",
+        "vector": "c",
+        "ostream": "c",
+        "linkedstack.h": "c",
+        "array": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "utility": "c",
+        "memory": "c",
+        "optional": "c",
+        "system_error": "c",
+        "stdio.h": "c",
+        "linkedlist.c": "cpp",
+        "hashtable.h": "c",
+        "arraylist.h": "c",
+        "stdarg.h": "c",
+        "cstdio": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
+}
