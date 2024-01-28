@@ -27,6 +27,7 @@ struct RBNode
 
 // char (*compareTo)(void *A, void *B) 接口
 // 红黑树内部比较大小会调用此方法,A的逻辑值大于B返回值大于0,等于返回0,小于返回值小于0
+
 struct RBTree
 {
     RBNode *Nil;

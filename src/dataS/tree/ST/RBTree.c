@@ -2,7 +2,7 @@
  * @Author: EKKO 189890049@qq.com
  * @Date: 2023-12-23 15:47:34
  * @LastEditors: EKKO 189890049@qq.com
- * @LastEditTime: 2024-01-01 21:49:40
+ * @LastEditTime: 2024-01-28 23:24:17
  * @Description: 通用红黑树数据结构的实现!
  *  2023-12-26 23:50 基本功能已经完成!但是还不敢用!
  *  从原理到实现花了好多时间!
@@ -992,11 +992,12 @@ RBNode *delete_min(RBTree *tree)
     }
 
     RBNode *min = minimum(tree, tree->root);
-    // min是根节点
+    // min是根节点 24 1/28 min到根节点不一定意味着只有一个节点
     if (min == tree->root)
     {
-        tree->root = tree->Nil;
-        tree->length = 0;
+        tree->root = tree->root->right;
+        tree->root->color = BLACK;
+        tree->length--;
         return min;
     }
 
@@ -1029,8 +1030,9 @@ RBNode *delete_max(RBTree *tree)
     // min是根节点
     if (max == tree->root)
     {
-        tree->root = tree->Nil;
-        tree->length = 0;
+        tree->root = tree->root->left;
+        tree->root->color = BLACK;
+        tree->length--;
         return max;
     }
 
