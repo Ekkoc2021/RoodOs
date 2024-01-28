@@ -1,13 +1,13 @@
 LINUXBOCHSRC=make/bochsconfig/bochsrc_gdb.bxrc
 # LINUXBOCHSRC=make/bochsconfig/bochsrc_vmlinux.bxrc
-LINUXMASTERDISK=make/bochsconfig/myvd.vhd
+LINUXMASTERDISK=make/bochsconfig/master.img
 LINUXBOCHS=bochs-gdb/bin/bochs
 # /mnt/e/workspace/vscode_workspace/RoodOs/
 WINDOWSGCC=x86_64-elf-gcc
 WINDOWSLD=x86_64-elf-ld
 WINDOWSBOCHSRC=make/bochsconfig/bochsrc.bxrc # windows下bochs配置文件
 WINDOWSBOCHS=bochsdbg
-WINDOWSMASTERDISK=make/bochsconfig/disk1.img # windows下启动盘
+WINDOWSMASTERDISK=make/bochsconfig/master.img # windows下启动盘
 
 
 BUILD=build/
@@ -20,7 +20,10 @@ clear : lclear
 #-----------now----------------
 
 
-
+user : 
+	make user -f make/makefile \
+	MASTERDISK=$(LINUXMASTERDISK) \
+	OUTPUT=$(BUILD)
 
 #-------------------------linux------------------------
 lkernel : 
@@ -34,10 +37,20 @@ lstart :
 	OUTPUT=$(BUILD)
 
 lqemuDebug :
-	qemu-system-i386 $(LINUXMASTERDISK) -m 128M -S -s
+	qemu-system-i386 \
+	-audiodev pa,id=hda \
+	-machine pcspk-audiodev=hda \
+	-rtc base=localtime \
+	-serial stdio \
+	$(LINUXMASTERDISK) -m 128M -S -s
 
 lqemu :
-	qemu-system-i386 $(LINUXMASTERDISK) -m 128M
+	qemu-system-i386 \
+	-audiodev pa,id=hda \
+	-machine pcspk-audiodev=hda \
+	-rtc base=localtime \
+	-serial stdio \
+	$(LINUXMASTERDISK) -m 128M
 
 # linux下清除功能
 lclear:
@@ -66,8 +79,8 @@ wStart :
 
 # windows下的qemu
 wqemu :
-	qemu-system-i386 make/bochsconfig/disk1.img -m 32M -S -s
-
+	qemu-system-i386 $(LINUXMASTERDISK) -m 32M -S -s -serial stdio
+ 
 # windows下的bochs启动
 wbochs :
 	$(WINDOWSBOCHS) -f $(WINDOWSBOCHSRC) -q
