@@ -1,4 +1,4 @@
-; IET.asm摘抄至《操作系统真象还原》的kernel.S
+; IET.asm摘抄自《操作系统真象还原》的kernel.S
 ; 我对摘抄的代码进行了简单调整,统一进入一个interruptHandler的函数中
 ; 统一对初始化中断入口:都压入一个错误码,都从idt_table中调用对应函数
 [bits 32]
@@ -49,8 +49,8 @@ intr_exit:
    pop fs
    pop es
    pop ds
-   add esp, 4			   ; 跳过error_code
-   iretd
+   add esp, 4		   ; 跳过error_code
+   iret
 
 VECTOR 0x00,ZERO
 VECTOR 0x01,ZERO
@@ -100,3 +100,4 @@ VECTOR 0x2c,ZERO	;ps/2鼠标
 VECTOR 0x2d,ZERO	;fpu浮点单元异常
 VECTOR 0x2e,ZERO	;硬盘
 VECTOR 0x2f,ZERO	;保留
+VECTOR 0x30,ZERO	;系统调用

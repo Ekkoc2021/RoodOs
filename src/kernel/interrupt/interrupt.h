@@ -6,28 +6,9 @@
 #include "../include/str.h"
 #include "pic.h"
 #include "timer.h"
-#define IETSize 0x21
-#define SELECTOR_GDT
 
-typedef struct
-{
-    uint32_t IVN;
-    uint32_t EDI;
-    uint32_t ESI;
-    uint32_t EBP;
-    uint32_t newESP;
-    uint32_t EBX;
-    uint32_t EDX;
-    uint32_t ECX;
-    uint32_t EAX;
-    uint32_t GS;
-    uint32_t FS;
-    uint32_t ES;
-    uint32_t DS;
-    uint32_t ERROCODE;
-    uint32_t EFLAGS;
-    uint32_t oldESP
-} StackInfo;
+#define IETSize 0x31
+#define SELECTOR_GDT
 
 typedef struct
 {
@@ -38,8 +19,6 @@ typedef struct
     uint16_t offset_high; // 高地址处的中断处理程序入口偏移量
 } InterruptDescriptor;
 
-void initIntr_name();
-void disable_irq();
 uint32_t areInterruptsEnabled();
 void enable_irq();
 void logStackInfo(StackInfo *s);

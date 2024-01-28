@@ -54,7 +54,7 @@ void startTimerInterrupt()
     log("Slave IMR Value (binary): ");
     for (int16_t i = 7; i >= 0; i--)
     {
-        printf("%d", (slaveIMR & (1 << i)) ? 1 : 0);
+        log("%d", (slaveIMR & (1 << i)) ? 1 : 0);
     }
     log("==>");
     for (int16_t i = 7; i >= 0; i--)

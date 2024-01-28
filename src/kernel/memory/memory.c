@@ -5,6 +5,32 @@ memoryMarket market;
 e820map map;
 userPageDir initUPD;
 
+void memdebug(memoryMarket *market)
+{
+    showPool(market->phyPool);
+    logVir(market->virMemPool);
+}
+// 内核页目录项全映射
+uint16_t kernelPDEMapping(memoryMarket *market)
+{
+    uint32_t phyPage;
+    for (uint16_t indexOfPD = 1; indexOfPD < 256; indexOfPD++)
+    {
+
+        uint32_t phyPage1 = getPhyPage(market->phyPool);
+        if (phyPage1 == 0x0)
+        {
+            // 内存不够分配新页表
+            ReturnPhyPage(market->phyPool, phyPage);
+            return 0;
+        }
+        clearPage(phyPage1); // 清除一个页
+        setPDE(market->virMemPool, phyPage1 | PAGEATTR, indexOfPD + 768);
+        // 设置PD的余量
+        resetPTSize(market->virMemPool, indexOfPD + 768, 0);
+    }
+    return 1;
+}
 memoryMarket *initMemoryManagement(uint32_t size, void *addr, void *kernelVAddr, void *pTablePhAddr)
 {
     // 初始化 页部件
@@ -13,81 +39,89 @@ memoryMarket *initMemoryManagement(uint32_t size, void *addr, void *kernelVAddr,
     map.entries = (e820entry *)addr;
     map.length = size;
 
-    log("Init memory management module...\n");
-    log("pageTable physical addr : 0x%p \n", pTablePhAddr);
-    log("pageTable virtual addr : 0x%p \n", ((uint32_t)pTablePhAddr + (uint32_t)kernelVAddr));
+    log("start Init memory management module...\n");
+    log("   pageTable physical addr : 0x%p \n", pTablePhAddr);
+    log("   pageTable virtual addr : 0x%p \n", ((uint32_t)pTablePhAddr + (uint32_t)kernelVAddr));
     char buff[128];
     // sprintf_(buff, "Block of available memory:%d\n", map.length);
     // print(buff);
     memPool *PhyPool = initPhysicalMem(&map);
-    pageDir *pd = initPageDir(((uint32_t)pTablePhAddr + (uint32_t)kernelVAddr), pTablePhAddr, &initUPD);
+    log("-- start init virtual memory... --\n");
+    virtualMemPool *virPoor = initPageDir(((uint32_t)pTablePhAddr + (uint32_t)kernelVAddr), pTablePhAddr, &initUPD);
     market.initPageDir = &initPageDir;
     market.phyPool = PhyPool;
-    market.pagedir = pd;
+    market.virMemPool = virPoor;
 
     // showPool(PhyPool);
     // // 物理内存去除kernel占用部分
+    log("   init kernel virtual memory\n");
     uint32_t kernelSize = initKernelPhysicalMem(PhyPool);
-    log("The kernel uses memory size: %f KB! \n", kernelSize / 4096.0);
-    showPool(PhyPool);
+    log("-- init virtual memory successful! --\n");
+    log("   The kernel uses memory size: %f KB! \n", kernelSize / 4096.0);
+
     // // 虚拟内存去除kernel占用部分
     uint16_t indexOfKernelPDE = START >> 22;
-    log("the index of kernel pde : %d \n", indexOfKernelPDE);
-    initkernelVirturalMem(pd, kernelSize / 4096, indexOfKernelPDE);
-    // logVir(pd);
-    //---------------测试-------------------
-    // log("\n");
-    // uint32_t pt = mallocPage_u(&market);
-    // // freePage(&market, pt);
-    // // pt = mallocPage_u(&market);
-    // // logVir(pd);
-    // // showPool(PhyPool);
-    // freePage(&market, pt);
-    // // showPool(PhyPool);
-    // // logVir(pd);
-    // pt = mallocPage_k(&market);
-    // logVir(pd);
-    // showPool(PhyPool);
-    // freePage(&market, pt);
-    // showPool(PhyPool);
-    // logVir(pd);
-    // pt = mallocPage_k(&market);
-    // logVir(pd);
-    // showPool(PhyPool);
-    // freePage(&market, pt);
-    // showPool(PhyPool);
-    // logVir(pd);
-    // tidy(&market);
-    // showPool(PhyPool);
-    // logVir(pd);
-    // void *m = mallocPage_k(&market);
-    // char *t = m;
-    // for (uint32_t i = 0; i < 30; i++)
-    // {
-    //     t[i] = 'm';
-    // }
-    // t[30] = '\0';
-    // printf(t);
-    // freePage(&market, t);
-    // printf(t);
-    //--------------------------------------
+    log("   the index of kernel pde : %d \n", indexOfKernelPDE);
+    log("   start init kernel virtual memory \n ");
+    initkernelVirturalMem(virPoor, kernelSize / 4096, indexOfKernelPDE);
+    log("   kernel virtual memory init done \n");
+    log("-- start kernelPDEMapping , size: 256 * 4 KB ! --\n");
+    ASSERT(kernelPDEMapping(&market)); // 内存不够就映射失败!
+    log("--memory module init successful! --\n");
+    showPool(PhyPool);
+    // memdebug(&market);
+    // 内核全映射PD全映射
 
+    // 测试切换页
+
+    // memdebug(&market);
+
+    // uint32_t pagePaddr;
+    // uint32_t pageVaddr = mallocPage_k(&market, &pagePaddr);
+    // initUserPd(market.virMemPool, pageVaddr);
+    // switchUser(market.virMemPool, market.virMemPool->userPD, pagePaddr, pageVaddr);
+
+    // pageVaddr = mallocPage_k(&market, &pagePaddr);
+    // memdebug(&market);
+    // freePage(&market, pageVaddr);
+    // memdebug(&market);
+    // pageVaddr = mallocPage_k(&market, &pagePaddr);
+    // initUserPd(market.virMemPool, pageVaddr);
+    // switchUser(market.virMemPool, market.virMemPool->userPD, pagePaddr, pageVaddr);
+    // memdebug(&market);
+
+    // 测试分配多页内存的函数:先分配多页,再释放,整理内存,然后观察分配到的内存一致与否
+
+    // uint32_t msize = 100;
+    // pageVaddr = mallocMultpage_k(&market, msize);
+    // memdebug(&market);
+    // freeNPage(&market, pageVaddr, msize);
+    // memdebug(&market);
+    // tidy(&market);
+    // memdebug(&market);
+    // pageVaddr = mallocMultpage_k(&market, msize);
+    // memdebug(&market);
+    // freeNPage(&market, pageVaddr, msize);
+    // memdebug(&market);
     return &market;
 }
-uint32_t mallocPage_u(memoryMarket *market)
+
+uint32_t mallocPage_u(memoryMarket *market, uint32_t *paddr)
 {
-    disable_irq();
+    // 防止中断嵌套
+    char status = BeSureDisable_irq();
     uint32_t phyPage = getPhyPage(market->phyPool);
+    *paddr = phyPage;
     if (phyPage == 0x0)
     {
         return 0x0;
     }
     // 获取或配置虚拟页
-    int16_t indexOfPD = searchUserPD(market->pagedir);
+    int16_t indexOfPD = searchUserPD(market->virMemPool);
     if (indexOfPD == 768)
     {
         // 没有任何空页表项,需要分配新页表
-        indexOfPD = searchUserEmptyPD(market->pagedir);
+        indexOfPD = searchUserEmptyPD(market->virMemPool);
 
         if (indexOfPD == -1)
         {
@@ -105,13 +139,13 @@ uint32_t mallocPage_u(memoryMarket *market)
         }
 
         clearPage(phyPage1); // 清除一个页
-        setPDE(market->pagedir, phyPage1 | 0x11, indexOfPD);
+        setPDE(market->virMemPool, phyPage1 | PAGEATTR, indexOfPD);
         // 设置PD的余量
-        resetPTSize(market->pagedir, indexOfPD, 0);
+        resetPTSize(market->virMemPool, indexOfPD, 0);
     }
 
     // 拿到页表物理地址
-    uint32_t phyPTaddr = getPDE(market->pagedir, indexOfPD) >> 12 << 12;
+    uint32_t phyPTaddr = getPDE(market->virMemPool, indexOfPD) >> 12 << 12;
 
     // 搜索空页表项
     uint16_t indexOfPT = searchPTE(phyPTaddr, 0x0);
@@ -122,39 +156,41 @@ uint32_t mallocPage_u(memoryMarket *market)
     }
 
     // 设置页表项
-    setPTE(phyPTaddr, phyPage | 0x11, indexOfPT);
+    setPTE(phyPTaddr, phyPage | PAGEATTR, indexOfPT);
     // 更新PD余量
-    updatePTSzie(market->pagedir, indexOfPD, 1);
-    enable_irq();
+    updatePTSzie(market->virMemPool, indexOfPD, 1);
     // 构造设置好的页的虚拟地址
     uint32_t vAddr = (indexOfPD << 22) + (indexOfPT << 12);
     invlpg(vAddr);
-    enable_irq();
+
+    Resume_irq(status);
     return vAddr;
 }
 
-uint32_t mallocPage_k(memoryMarket *market)
+uint32_t mallocPage_k(memoryMarket *market, uint32_t *paddr)
 {
-    disable_irq();
+    char status = BeSureDisable_irq();
     // 分配物理页
     uint32_t phyPage = getPhyPage(market->phyPool);
+    *paddr = phyPage;
     if (phyPage == 0x0)
     {
         return 0x0;
     }
 
     // 获取或配置虚拟页
-    int16_t indexOfPD = searchKernelPD(market->pagedir);
+    int16_t indexOfPD = searchKernelPD(market->virMemPool);
     if (indexOfPD == 1024)
     {
         // 没有任何空页表项,需要分配新页表
-        indexOfPD = searchKernelEmptyPD(market->pagedir);
+        indexOfPD = searchKernelEmptyPD(market->virMemPool);
         if (indexOfPD == -1)
         {
             // 虚拟页用满了
             ReturnPhyPage(market->phyPool, phyPage);
             return 0x0;
         }
+
         uint32_t phyPage1 = getPhyPage(market->phyPool);
         if (phyPage1 == 0x0)
         {
@@ -163,13 +199,13 @@ uint32_t mallocPage_k(memoryMarket *market)
             return 0x0;
         }
         clearPage(phyPage1); // 清除一个页
-        setPDE(market->pagedir, phyPage1 | 0x11, indexOfPD);
+        setPDE(market->virMemPool, phyPage1 | PAGEATTR, indexOfPD);
         // 设置PD的余量
-        resetPTSize(market->pagedir, indexOfPD, 0);
+        resetPTSize(market->virMemPool, indexOfPD, 0);
     }
 
     // 拿到页表物理地址
-    uint32_t phyPTaddr = getPDE(market->pagedir, indexOfPD) >> 12 << 12;
+    uint32_t phyPTaddr = getPDE(market->virMemPool, indexOfPD) >> 12 << 12;
 
     // 搜索空页表项
     uint16_t indexOfPT = searchPTE(phyPTaddr, 0x0);
@@ -180,28 +216,28 @@ uint32_t mallocPage_k(memoryMarket *market)
     }
 
     // 设置页表项
-    setPTE(phyPTaddr, phyPage | 0x11, indexOfPT);
+    setPTE(phyPTaddr, phyPage | PAGEATTR, indexOfPT);
     // 更新PD余量
-    updatePTSzie(market->pagedir, indexOfPD, 1);
+    updatePTSzie(market->virMemPool, indexOfPD, 1);
     // 构造设置好的页的虚拟地址
     uint32_t vAddr = (indexOfPD << 22) + (indexOfPT << 12);
     invlpg(vAddr);
-    enable_irq();
+    Resume_irq(status);
     return vAddr;
 }
 
 void freePage(memoryMarket *market, uint32_t vAddr)
 {
-    disable_irq();
+    char status = BeSureDisable_irq();
     // 提取 PDE的index
     uint32_t indexOfPD = vAddr >> 22;
     uint32_t indexOfPT = (vAddr >> 12) & 0b1111111111;
 
     // 获得对应PT的物理地址
-    uint32_t PTPAddr = getPDE(market->pagedir, indexOfPD) & (~0x11);
+    uint32_t PTPAddr = getPDE(market->virMemPool, indexOfPD) & (PAGEATTR);
 
     // 获得对应PTE包含的物理地址
-    uint32_t paddr = getPTE(PTPAddr, indexOfPT) & (~0x11);
+    uint32_t paddr = getPTE(PTPAddr, indexOfPT) & (~PAGEATTR);
 
     ReturnPhyPage(market->phyPool, paddr);
 
@@ -209,39 +245,117 @@ void freePage(memoryMarket *market, uint32_t vAddr)
     setPTE(PTPAddr, 0x0, indexOfPT);
 
     // 更新PD
-    updatePTSzie(market->pagedir, indexOfPD, -1);
+    updatePTSzie(market->virMemPool, indexOfPD, -1);
     invlpg(vAddr);
-    enable_irq();
+    Resume_irq(status);
 }
 
 // 将PD为0的物理页归还
 void tidy(memoryMarket *market)
 {
-    // 整理内核
+    // 不整理内核,内核要保证全映射
     uint16_t index;
     uint32_t PTPaddr;
-    while ((index = getKernelZeroPdIndex(market->pagedir)) < 1024)
-    {
-        // 获取物理页
-        PTPaddr = getPDE(market->pagedir, index) >> 12 << 12;
-        // 归还
-        ReturnPhyPage(market->phyPool, PTPaddr);
-        // 重置PDsize
-        resetPTSize(market->pagedir, index, -1);
-        // 清理
-        clearPDE(market->pagedir, index);
-    }
 
     // 整理用户
-    while ((index = getUserZeroPdIndex(market->pagedir)) < 768)
+    while ((index = getUserZeroPdIndex(market->virMemPool)) < 768)
     {
         // 获取物理页
-        PTPaddr = getPDE(market->pagedir, index) >> 12 << 12;
+        PTPaddr = getPDE(market->virMemPool, index) >> 12 << 12;
         // 归还
         ReturnPhyPage(market->phyPool, PTPaddr);
         // 重置PDsize
-        resetPTSize(market->pagedir, index, -1);
+        resetPTSize(market->virMemPool, index, -1);
         // 清理
-        clearPDE(market->pagedir, index);
+        clearPDE(market->virMemPool, index);
     }
+}
+
+// 没考虑到连续多页内存的情况,补充两个函数
+// 实现一个简单函数:假设用户申请连续内存超过4*1024Kb的情况
+// todo : 考虑超过4mb的情况
+uint32_t mallocMultpage_k(memoryMarket *market, uint32_t n)
+{
+    char status = BeSureDisable_irq();
+    // 找到一个空的pd
+    // 没有任何空页表项,需要分配新页表
+    uint32_t indexOfPD;
+    // int16_t serchZeroSizeKernelPD(virtualMemPool * p)
+    indexOfPD = searchZeroSizeKernelPD(market->virMemPool);
+    if (indexOfPD == 1024)
+    {
+        // todo 不应该就怎么草率处理
+        return 0x0;
+    }
+
+    // 拿到页表物理地址
+    uint32_t phyPage;
+    uint32_t phyPTaddr = getPDE(market->virMemPool, indexOfPD) >> 12 << 12;
+    for (uint32_t i = 0; i < n; i++)
+    {
+        // 分配物理页
+        phyPage = getPhyPage(market->phyPool);
+        // 设置页表项
+        setPTE(phyPTaddr, phyPage | PAGEATTR, i);
+    }
+
+    // 更新PD余量
+    updatePTSzie(market->virMemPool, indexOfPD, n);
+    Resume_irq(status);
+    return (indexOfPD << 22) + (0 << 12);
+}
+uint32_t mallocMultpage_u(memoryMarket *market, uint32_t n)
+{
+    char status = BeSureDisable_irq();
+    // 找到一个空的pd
+    // 没有任何空页表项,需要分配新页表
+    uint32_t indexOfPD;
+
+    indexOfPD = searchUserEmptyPD(market->virMemPool);
+    if (indexOfPD == -1)
+    {
+        return 0x0;
+    }
+    uint32_t phyPage = getPhyPage(market->phyPool);
+    if (phyPage == 0x0)
+    {
+        return 0x0;
+    }
+    // 检查物理内存是否足够
+    if (market->phyPool->map.size - market->phyPool->map.used < n)
+    {
+        ReturnPhyPage(market->phyPool, phyPage);
+        return 0x0;
+    }
+    clearPage(phyPage); // 清除一个页
+    setPDE(market->virMemPool, phyPage | PAGEATTR, indexOfPD);
+    // 设置PD的余量
+    resetPTSize(market->virMemPool, indexOfPD, 0);
+
+    // 根据需要分配内存
+
+    // 拿到页表物理地址
+    uint32_t phyPTaddr = getPDE(market->virMemPool, indexOfPD) >> 12 << 12;
+    for (uint32_t i = 0; i < n; i++)
+    {
+        // 分配物理页
+        phyPage = getPhyPage(market->phyPool);
+        // 设置页表项
+        setPTE(phyPTaddr, phyPage | PAGEATTR, i);
+    }
+    // 更新PD余量
+    updatePTSzie(market->virMemPool, indexOfPD, n);
+    Resume_irq(status);
+    return (indexOfPD << 22) + (0 << 12);
+}
+
+void freeNPage(memoryMarket *market, uint32_t vaddr, uint32_t n)
+{
+    char status = BeSureDisable_irq();
+    for (uint32_t i = 0; i < n; i++)
+    {
+        freePage(market, vaddr);
+        vaddr += 4096;
+    }
+    Resume_irq(status);
 }

@@ -4,57 +4,57 @@
 extern uint32_t intr_entry_table[IETSize]; // 中断入口表
 InterruptDescriptor IDT[IETSize];          // 中断描述符表
 char *intr_name[IETSize];                  // 中断名称
-
-uint32_t i = 0;
+extern processManager manager;             // 进程管理器
+uint32_t i = 0;                            // 测试,可以删除
+extern void intr_exit();
+extern void schedule();
+void sys_call(StackInfo *s)
+{
+    log(s->EAX);
+}
 void interruptHandler(uint32_t IVN, ...)
 {
-    log("interrupt test successful ! IVN = %d , time = %d\n ", IVN, i);
+    // log("interrupt test successful ! IVN = %d , time = %d\n ", IVN, i);
     if (IVN == 0x27 || IVN == 0x2f)
     {           // 0x2f是从片8259A上的最后一个irq引脚，保留
         return; // IRQ7和IRQ15会产生伪中断(spurious interrupt),无须处理。
     }
-    // 通过IVN的栈针地址,定位
-    va_list args;        // 定义参数
-    va_start(args, IVN); // 初始化
-    StackInfo s;
-    s.EDI = (uint32_t)va_arg(args, uint32_t);
-    s.ESI = (uint32_t)va_arg(args, uint32_t);
-    s.EBP = (uint32_t)va_arg(args, uint32_t);
-    s.newESP = (uint32_t)va_arg(args, uint32_t);
-    s.EBX = (uint32_t)va_arg(args, uint32_t);
-    s.EDX = (uint32_t)va_arg(args, uint32_t);
-    s.ECX = (uint32_t)va_arg(args, uint32_t);
-    s.EAX = (uint32_t)va_arg(args, uint32_t);
-    s.GS = (uint32_t)va_arg(args, uint32_t);
-    s.FS = (uint32_t)va_arg(args, uint32_t);
-    s.ES = (uint32_t)va_arg(args, uint32_t);
-    s.DS = (uint32_t)va_arg(args, uint32_t);
-    s.ERROCODE = (uint32_t)va_arg(args, uint32_t);
-    s.EFLAGS = (uint32_t)va_arg(args, uint32_t);
-    s.oldESP = (uint32_t)va_arg(args, uint32_t);
-    s.IVN = IVN;
-    // log("---------------------------------------------\n");
-    // logStackInfo(&s);
-    // log("---------%s------------\n", intr_name[IVN]);
-    StackInfo *t;
-    t = (StackInfo *)(&IVN);
-    StackInfo s2;
-    memcpy_(&s2, t, sizeof(StackInfo));
 
+    // 根据IVN 调用不同中断函数
     switch (IVN)
     {
     case 32:
-        log("interrupt test successful ! IVN = %d , time = %d\n ", IVN, i);
-        // 发生切换
+        // 时钟中断,发生切换
+        // __asm__("xchg %%bx,%%bx" ::);
+        schedule();
+
+        // 切换栈
+        asm volatile(
+            "movl %0, %%eax\n "
+            "movl %%eax, %%esp\n "
+            "jmp intr_exit\n"
+            :
+            : "r"(manager.now->esp0) // 输入操作数：myVar表示源操作数
+        );
+        // __asm__("xchg %%bx,%%bx" ::);
         break;
 
+    case 14:
+        uint32_t page_fault_vaddr = 0;
+        // asm volatile("movl %0, %%cr3" : : "r"(paddr) : "memory");
+        asm("movl %%cr2, %0" : "=r"(page_fault_vaddr) : :); // cr2是存放造成page_fault的地址
+        log("%d / %p \n", page_fault_vaddr, page_fault_vaddr);
+        break;
+    case 0x30:
+        // system_call 系统调用
+        sys_call(&IVN);
+        break;
     default:
-        log("---------%s------------\n", intr_name[IVN]);
+        log("---%d:-----%s------------\n", IVN, intr_name[IVN]);
         break;
     }
 
     i++;
-    va_end(args);
 }
 
 void initIntr_name()
@@ -84,25 +84,6 @@ void initIntr_name()
     intr_name[17] = "#AC Alignment Check Exception";
     intr_name[18] = "#MC Machine-Check Exception";
     intr_name[19] = "#XF SIMD Floating-Point Exception";
-}
-
-void disable_irq()
-{
-    asm volatile("cli");
-}
-
-uint32_t areInterruptsEnabled()
-{
-    uint32_t flags;
-    asm volatile("pushf; pop %0" : "=g"(flags));
-    return flags & (1 << 9);
-}
-
-// 可能会存在,嵌套函数频繁开关中断,enable_irq应该要考虑原中断状态
-void enable_irq()
-{
-    //
-    asm volatile("sti");
 }
 
 void logStackInfo(StackInfo *s)
@@ -137,8 +118,9 @@ InterruptDescriptor *interruptInit()
     for (uint16_t i = 0; i < IETSize; i++)
     {
         // 初始化中断描述符
-        init_idt_desc(IDT + i, IDT_DESC_ATTR_DPL0, intr_entry_table[i]);
+        init_idt_desc(IDT + i, IDT_DESC_ATTR_DPL3, intr_entry_table[i]);
     }
+    init_idt_desc(IDT + IETSize - 1, IDT_DESC_ATTR_DPL3, intr_entry_table[IETSize - 1]);
 
     // 初始化中断名称
     initIntr_name();
@@ -148,7 +130,6 @@ InterruptDescriptor *interruptInit()
 
     // 初始化pic:8259A可编程中断控制器
     initPIC();
-
     // 初始化时钟中断
     timer_init();
     // 开启时钟中断

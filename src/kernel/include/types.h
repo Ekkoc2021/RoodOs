@@ -12,4 +12,8 @@ typedef char bool;
 #define false 0
 #define true 1
 #define NULL 0x0
+
+//------------------
+typedef uint32_t u32;
+typedef uint16_t u16;
 #endif

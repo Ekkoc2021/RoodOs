@@ -1,6 +1,50 @@
 #include "virtualMem.h"
 
-void logVir(pageDir *pd)
+// 申请连续n页虚拟内存
+// todo:2024/1/22 好麻烦,暂且考虑不会超过4kb*1024=4mb的申请情况
+//
+void searchNPage(virtualMemPool *vpool, uint32_t pageSize, char iskernel)
+{
+}
+
+// 初始化用户的page dir
+void initUserPd(virtualMemPool *pd, uint32_t PageVaddr)
+{
+
+    uint32_t *source = ((uint32_t *)pd->vaddr) + 768;
+    uint32_t *destination = (uint32_t *)PageVaddr;
+    // 清空页
+    for (uint32_t i = 0; i < 768; i++)
+    {
+        destination[i] = 0;
+    }
+    // 拷贝
+    destination = destination + 768;
+    memcpy_(destination, source, 256 * 4);
+}
+
+// 切换页目录项
+void switch_page_dir(uint32_t paddr)
+{
+    asm volatile("movl %0, %%cr3" : : "r"(paddr) : "memory");
+}
+
+// 切换到用户
+// 全局pd对象
+// upd 用户的pagedir对象
+// vaddr 用户页目录的虚拟地址
+// paddr 用户页目录的物理地址
+void switchUser(virtualMemPool *pd, userPageDir *upd, uint32_t paddr, uint32_t vaddr)
+{
+    // 修改全局pd对象
+    pd->vaddr = vaddr;
+    pd->paddr = paddr;
+    pd->userPD = upd;
+    // 切换页目录项
+    switch_page_dir(paddr);
+}
+
+void logVir(virtualMemPool *pd)
 {
     // 如何遍历一个pd对象?
     // index PDE PTSzie
@@ -13,23 +57,23 @@ void logVir(pageDir *pd)
         if (testBit(&(pd->kernelPD->map), i))
         {
             ptphy = (getPDE(pd, 768 + i) >> 12) << 12;
-            log("index:%d,PDE:0x%p,PTSzie:%d \n", i, getPDE(pd, 768 + i), getPTSize(pd, 768 + i));
+            log("index:%d,PDE:0x%p,PTSzie:%d \n", i + 768, getPDE(pd, 768 + i), getPTSize(pd, 768 + i));
             uint16_t size = 1;
 
-            for (uint32_t j = 0; j < 1024; j++)
-            {
+            // for (uint32_t j = 0; j < 1024; j++)
+            // {
 
-                uint32_t pte = getPTE(ptphy, j);
-                if (pte != 0)
-                {
-                    size++;
-                    log(" %d :0x%p ", j, pte);
-                    if (size % 5 == 0)
-                    {
-                        log("\n");
-                    }
-                }
-            }
+            //     uint32_t pte = getPTE(ptphy, j);
+            //     if (pte != 0)
+            //     {
+            //         size++;
+            //         log(" %d :0x%p ", j, pte);
+            //         if (size % 5 == 0)
+            //         {
+            //             log("\n");
+            //         }
+            //     }
+            // }
         }
     }
 
@@ -42,25 +86,25 @@ void logVir(pageDir *pd)
         {
             log("index:%d,PDE:0x%p,PTSzie:%d \n", i, getPDE(pd, i), getPTSize(pd, i));
             uint16_t size = 1;
-            for (uint32_t j = 0; j < 1024; j++)
-            {
+            // for (uint32_t j = 0; j < 1024; j++)
+            // {
 
-                uint32_t pte = getPTE(ptphy, j);
-                if (pte != 0)
-                {
-                    size++;
-                    log(" %d :%p ", j, pte);
-                    if (size % 4 == 0)
-                    {
-                        log("\n");
-                    }
-                }
-            }
+            //     uint32_t pte = getPTE(ptphy, j);
+            //     if (pte != 0)
+            //     {
+            //         size++;
+            //         log(" %d :%p ", j, pte);
+            //         if (size % 4 == 0)
+            //         {
+            //             log("\n");
+            //         }
+            //     }
+            // }
         }
     }
     return;
 }
-uint32_t getPTSize(pageDir *p, uint16_t index)
+uint32_t getPTSize(virtualMemPool *p, uint16_t index)
 {
     uint16_t *v = p->kernelPD->PT;
     if (index > 767)
@@ -70,13 +114,14 @@ uint32_t getPTSize(pageDir *p, uint16_t index)
     v = p->userPD->PT;
     return v[index];
 }
-void initkernelVirturalMem(pageDir *pd, uint32_t pageSize, uint16_t PDEIndex)
+void initkernelVirturalMem(virtualMemPool *pd, uint32_t pageSize, uint16_t PDEIndex)
 {
     // 同样只考虑1mb以内
     // 根据PEDindex得到页表物理地址
     uint32_t paddr = (getPDE(pd, PDEIndex) >> 12) << 12;
     // 根据页表物理地址重新设置页表项不在内核范围内虚拟PTE
-    for (uint16_t i = pageSize; i < 256; i++)
+    // 158 开始的页==有其他用处
+    for (uint16_t i = pageSize; i < 159; i++)
     {
         setPTE(paddr, 0x0, i);
     }
@@ -87,8 +132,8 @@ void initkernelVirturalMem(pageDir *pd, uint32_t pageSize, uint16_t PDEIndex)
         resetPTSize(pd, i, -1);
     }
 
-    // 更新PDsize
-    resetPTSize(pd, PDEIndex, pageSize + 1);
+    // 更新PDsize,256-159+pageSize+1
+    resetPTSize(pd, PDEIndex, 256 - 159 + pageSize + 1);
     // 设置临时页
     clearTemp(); // 主动设置为#FFFF
     // 更新pd的bitmap
@@ -102,10 +147,10 @@ void invlpg(void *virtualMem)
 // 将一个物理页映射到临时区域,方便操作
 void setTemp(uint32_t paddr)
 {
-    uint32_t tempPTE = (paddr & 0xFFFFF000) | 0b11; // 构造临时PTE
-    uint32_t *vpt = TEMP_PTVADDR;                   // 获取临时页表
-    vpt[TEMP_PTE] = tempPTE;                        // 设置临时页表项
-    invlpg(((TEMP_PDE << 22) + (TEMP_PTE << 12)));  // 刷新临时虚拟内存
+    uint32_t tempPTE = (paddr & 0xFFFFF000) | PAGEATTR; // 构造临时PTE
+    uint32_t *vpt = TEMP_PTVADDR;                       // 获取临时页表
+    vpt[TEMP_PTE] = tempPTE;                            // 设置临时页表项
+    invlpg(((TEMP_PDE << 22) + (TEMP_PTE << 12)));      // 刷新临时虚拟内存
 }
 
 // 清空临时区域
@@ -140,7 +185,7 @@ void setPTE(uint32_t PTPAddr, uint32_t PTE, uint16_t index)
 }
 
 // 设置一个页目录项
-void setPDE(pageDir *p, uint32_t PDE, uint16_t index)
+void setPDE(virtualMemPool *p, uint32_t PDE, uint16_t index)
 {
     uint32_t *v = p->vaddr;
     v[index] = PDE;
@@ -151,7 +196,7 @@ void setPDE(pageDir *p, uint32_t PDE, uint16_t index)
     }
     setBit(&(p->userPD->map), index);
 }
-void clearPDE(pageDir *p, uint16_t index)
+void clearPDE(virtualMemPool *p, uint16_t index)
 {
     uint32_t *v = p->vaddr;
     v[index] = 0x0;
@@ -175,7 +220,7 @@ uint32_t getPTE(uint32_t PTPAddr, uint16_t index)
     // paddr是要映射的物理页
 }
 
-void updatePTSzie(pageDir *p, uint16_t pdeIndex, int16_t increment)
+void updatePTSzie(virtualMemPool *p, uint16_t pdeIndex, int16_t increment)
 {
     if (pdeIndex > 767)
     {
@@ -187,7 +232,7 @@ void updatePTSzie(pageDir *p, uint16_t pdeIndex, int16_t increment)
     p->userPD->PT[pdeIndex] += increment;
 }
 
-void resetPTSize(pageDir *p, uint16_t pdeIndex, int16_t value)
+void resetPTSize(virtualMemPool *p, uint16_t pdeIndex, int16_t value)
 {
     if (pdeIndex > 767)
     {
@@ -198,7 +243,7 @@ void resetPTSize(pageDir *p, uint16_t pdeIndex, int16_t value)
     p->userPD->PT[pdeIndex] = value;
 }
 
-uint32_t getPDE(pageDir *p, uint16_t index)
+uint32_t getPDE(virtualMemPool *p, uint16_t index)
 {
     uint32_t *v = p->vaddr;
     return v[index];
@@ -218,10 +263,10 @@ uint16_t searchPTE(uint32_t PTPAddr, uint32_t PTE)
     clearTemp();
     return 1024;
 }
-pageDir pd;
+virtualMemPool pd;
 KernelPageDir pkd;
 //-----------pageEntry management---------------------
-pageDir *initPageDir(void *vaddr, void *paddr, userPageDir *upd)
+virtualMemPool *initPageDir(void *vaddr, void *paddr, userPageDir *upd)
 {
 
     pd.vaddr = vaddr;
@@ -237,13 +282,27 @@ pageDir *initPageDir(void *vaddr, void *paddr, userPageDir *upd)
 // 初始化一个内核部分page
 
 // 在内核页目录查找一个空目录项,小于768为没有空页目录项
-int16_t searchKernelEmptyPD(pageDir *p)
+int16_t searchKernelEmptyPD(virtualMemPool *p)
 {
+
     return find_fist_bit(&(p->kernelPD->map)) + 768;
 }
 
-// 查找一个有余量的内核目录项
-int16_t searchKernelPD(pageDir *p)
+// 查找一个有余量的内核目录项,内核目录项全映射,不可能有余量
+int16_t searchZeroSizeKernelPD(virtualMemPool *p)
+{
+    // 空页目录的意思对应pd=0的目录
+    for (uint16_t i = 0; i < 256; i++)
+    {
+        if ((p->kernelPD->PT)[i] == 0)
+        {
+            return i + 768;
+        }
+    }
+    return 1024;
+}
+
+int16_t searchKernelPD(virtualMemPool *p)
 {
     for (uint16_t i = 0; i < 256; i++)
     {
@@ -257,7 +316,7 @@ int16_t searchKernelPD(pageDir *p)
 
 int16_t nextKernelPDZeroIndex = 0;
 // 寻找内核为余量为0的目录项
-int16_t getKernelZeroPdIndex(pageDir *p)
+int16_t getKernelZeroPdIndex(virtualMemPool *p)
 {
     for (; nextKernelPDZeroIndex < 256; nextKernelPDZeroIndex++)
     {
@@ -277,13 +336,13 @@ int16_t getKernelZeroPdIndex(pageDir *p)
 //------------user virtual pageDir management---------
 
 // 在用户页目录查找一个空目录项
-int16_t searchUserEmptyPD(pageDir *p)
+int16_t searchUserEmptyPD(virtualMemPool *p)
 {
     return find_fist_bit(&(p->userPD->map));
 }
 
 // 查找一个有余量的目录项
-int16_t searchUserPD(pageDir *p)
+int16_t searchUserPD(virtualMemPool *p)
 {
     for (uint16_t i = 0; i < 768; i++)
     {
@@ -295,7 +354,7 @@ int16_t searchUserPD(pageDir *p)
     return 768;
 }
 int16_t nextUserPDZeroIndex = 0;
-int16_t getUserZeroPdIndex(pageDir *p)
+int16_t getUserZeroPdIndex(virtualMemPool *p)
 {
     for (; nextUserPDZeroIndex < 768; nextUserPDZeroIndex++)
     {

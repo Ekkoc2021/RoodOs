@@ -1,10 +1,16 @@
 #ifndef ROODOS_H
 #define ROODOS_H
 #define log printf
+#define debug_printf log_qemu_printf
 #include "io.h"
 #include "types.h"
-void hlt();
+// #include "interrupt.h"
 
+void hlt();
+void initIntr_name();
+void disable_irq();
+char BeSureDisable_irq();
+void Resume_irq(char status);
 // 参考 操作系统真象欢迎 io.h
 /* 向端口port写入一个字节*/
 static inline void outb(uint16_t port, uint8_t data)

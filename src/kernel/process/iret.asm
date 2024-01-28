@@ -1,0 +1,2 @@
+global iretd_function
+

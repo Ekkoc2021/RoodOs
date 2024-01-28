@@ -14,26 +14,28 @@
 memPool phyPool;
 void showIndexNode(indexNode *tempP)
 {
-    log("  indexBitsAddr:0x%p,indexOfBitMap:%d,size:%d,used:%d\n", tempP->indexBit.bits, tempP->startIndexOfBitmap, tempP->indexBit.size, tempP->indexBit.used);
+    log("- indexBitsAddr:0x%p,indexOfBitMap:%d,size:%d,used:%d\n", tempP->indexBit.bits, tempP->startIndexOfBitmap, tempP->indexBit.size, tempP->indexBit.used);
 }
 void showPool(memPool *p)
 {
+    log("---physical memory report---\n");
+    log(" page size:%d,used:%d  ", p->map.size, p->map.used);
     char buff[128];
-    log("Block of available memory:%d\n", p->e->size);
+    log("   Block of available memory:%d\n", p->e->size);
     for (uint16_t i = 0; i < p->e->size; i++)
     {
         iToHexStr((p->e->memBlocks[i]).addr, buff);
-        log("  addr: 0x%s\\%d ", buff, (p->e->memBlocks[i]).addr);
-        log("  memory size: %d B ", p->e->memBlocks[i].memSize);
-        log("  bitsize: %d \n", p->e->memBlocks[i].bitSize);
-        log("     bitIndex between %d and %d \n", p->e->memBlocks[i].bitMinIndex, p->e->memBlocks[i].bitMaxIndex);
+        log("+ addr: 0x%s\\%d ", buff, (p->e->memBlocks[i]).addr);
+        log(" memory size: %d B ", p->e->memBlocks[i].memSize);
+        log(" bitsize: %d \n", p->e->memBlocks[i].bitSize);
+        log("  - bitIndex between %d and %d \n", p->e->memBlocks[i].bitMinIndex, p->e->memBlocks[i].bitMaxIndex);
     }
-    log("indexLisnt:elementSize: %d length :%d dataAddr: 0x%p \n", p->indexList.elemSize, p->indexList.length, p->indexList.data);
+    log("   indexLisnt:elementSize: %d length :%d dataAddr: 0x%p \n", p->indexList.elemSize, p->indexList.length, p->indexList.data);
     indexNode *tempP;
     for (uint32_t i = 0; i < p->indexList.length; i++)
     {
         getElem(&(p->indexList), &tempP, i);
-        log("  data details  addr:0x%p\n    ",
+        log("+ data details  addr:0x%p\n    ",
             (indexNode *)(p->indexList.data) + i);
         showIndexNode(tempP);
     }
@@ -41,7 +43,7 @@ void showPool(memPool *p)
 // e820map调出可用内存,然后构建memPool
 memPool *initPhysicalMem(e820map *e)
 {
-    log("Physical memory initialization...\n");
+    log("-- Physical memory initialization... --\n");
     phyPool.map.bits = (char *)(START + OFFSET);
     phyPool.e = (availableMem *)(e->entries + e->length);
     phyPool.e->size = 0;
@@ -127,7 +129,7 @@ memPool *initPhysicalMem(e820map *e)
     }
 
     // showPool(&phyPool);
-    log("Physical memory Initialization successful!\n");
+    log("-- Physical memory Initialization successful! --\n");
     return &phyPool;
 }
 
@@ -182,24 +184,32 @@ uint32_t phyAddrToIndexList(memPool *p, uint32_t bitmapIndex)
 
 uint32_t getPhyPage(memPool *p)
 {
+    // showPool(p);
     arrayList *list = &(p->indexList);
     // 在indexList中找到空位最多的块
     uint32_t index = getByCmp(list, compareTo);
-    ASSERT(index < list->length);
+
+    // 拿到最多的块
     indexNode *temp;
     getElem(list, &temp, index);
-    // 判断容量是否够
+    // log("the max empty in index list : %d \n start of the index %d \n", index, temp->startIndexOfBitmap);
+    // 判断容量最多的块的容量是否足够
     if (temp->indexBit.size - temp->indexBit.used == 0)
     {
         return NULL;
     }
+    // 足够
     Bitmap *bitmap = &(temp->indexBit);
     uint32_t indexOfBitmap = find_fist_bit(bitmap) + temp->startIndexOfBitmap; // 在全局的索引
-    setBit(bitmap, indexOfBitmap);
+    // log("index of bitmap %d \n", indexOfBitmap);
+    setBit(bitmap, indexOfBitmap - temp->startIndexOfBitmap);
     p->map.used++;
+
     // 从index找到对应的大物理块
     uint32_t indexOfBlock = phyAddrToIndexList(p, indexOfBitmap);
+    // log("the max index of memory block : %d", indexOfBlock);
     // log("block %d,indexOfBitmap %d,indexOfBlock %d \n", index, indexOfBitmap, indexOfBlock);
+    // log("p mem :%p \n", p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096);
     return p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096;
 }
 
