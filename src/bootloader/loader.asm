@@ -47,8 +47,8 @@ DESC_KERNEL_CODE_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_
 DESC_KERNEL_DATA_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL + DESC_KERNEL_LIMIT_DATA2 + DESC_P + DESC_DPL_0 + DESC_S_DATA + DESC_TYPE_DATA + 0x00
 
 ; 用户数据段和代码段
-DESC_USER_CODE_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL +DESC_USER_LIMIT_CODE2 + DESC_P + DESC_DPL_3 + DESC_S_CODE + DESC_TYPE_CODE + 0x00
-DESC_USER_DATA_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL + DESC_USER_LIMIT_DATA2 + DESC_P + DESC_DPL_3 + DESC_S_DATA + DESC_TYPE_DATA + 0x00
+DESC_USER_CODE_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL +DESC_KERNEL_LIMIT_CODE2 + DESC_P + DESC_DPL_3 + DESC_S_CODE + DESC_TYPE_CODE + 0x00
+DESC_USER_DATA_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL + DESC_KERNEL_LIMIT_DATA2 + DESC_P + DESC_DPL_3 + DESC_S_DATA + DESC_TYPE_DATA + 0x00
 
 TSS_D equ 0
 TSS_LIMIT_SIZE1 equ 0
@@ -92,12 +92,12 @@ GlobalZeroDPLDataDescription:
 
 ;3 特权级代码段 ==选择子: 0b11011
 GlobalThreeDPLCodeDescription:
-    dd 0x00000000
+    dd 0x0000FFFF
     dd DESC_USER_CODE_HIGH4
 
 ;3 特权级数据段 ==选择子: 0b100011
 GlobalThreeDPLDataDescription:
-    dd 0x00000000
+    dd 0x0000FFFF
     dd DESC_USER_DATA_HIGH4
 
 ; TSS 描述符 == 选择子 : 0b101000
@@ -128,7 +128,6 @@ loaderStar:
     int 0x15
     
     add di, cx		      ;使di增加20字节指向缓冲区中新的ARDS结构位置
-    xchg bx,bx
     inc word [memCount]	      ;记录数量
     cmp ebx, 0		      ;若ebx为0且cf不为1,这说明ards全部返回，当前已是最后一个
     jnz .e820_mem_get_loop
@@ -205,7 +204,7 @@ protect_mode:
 
     mov eax,FirstPageItermAddr ;构建页目录项
     ;页目录项属性设置为0b0000 0000 0000 0011
-    or eax,0b11
+    or eax,0b111
     mov [PageTableAddr+(KernelAddr>>22)*4],eax
     ;第一个页目录项写完毕
 
@@ -216,7 +215,7 @@ protect_mode:
     mov ecx,256 ;共映射256个页
     mov ebp,FirstPageItermAddr ;页表起始位置
     mov edi,0 ;物理地址起始值
-    mov esi,0b11 ;属性项
+    mov esi,0b111 ;属性项
 
 .set_pageTableItems:
     sub ebp,4
