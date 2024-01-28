@@ -15,19 +15,25 @@ DATAS=src/dataS
 KERNEENTRY=0xc0011000  #c000_0000 内核入口地址,与boot加载位置和,loader跳转位置有关
 
 LDFLAGS=-Ttext $(KERNEENTRY) -m elf_i386 -static
+# CFLAGS=-m32 \
+# 	-O0 \
+# 	-static \
+# 	-fno-asynchronous-unwind-tables \
+# 	-fno-pic \
+# 	-fno-pie  \
+# 	-fno-stack-protector \
+# 	-fno-builtin \
+# 	-nostdlib \
+# 	-nodefaultlibs \
+# 	-nostdinc \
+# 	-nostartfiles  
 CFLAGS=-m32 \
-	-O0 \
-	-static \
-	-fno-asynchronous-unwind-tables \
 	-fno-pic \
 	-fno-pie  \
 	-fno-stack-protector \
 	-fno-builtin \
 	-nostdlib \
-	-nodefaultlibs \
 	-nostdinc \
-	-nostartfiles  
-
 # CFLAGS:= -m32 					# 32 位的程序
 # CFLAGS+= -march=pentium			# pentium 处理器
 # CFLAGS+= -fno-builtin			# 不需要 gcc 内置函数
@@ -41,7 +47,7 @@ DEBUG=-g # gcc调试参数,可以debug
 INCLUDE=-Iinclude # 搜索编译的头文件的目录
 
 
-start : bootloader $(OUTPUT)system.bin sym
+start : bootloader $(OUTPUT)system.bin sym $(OUTPUT)system.map
 
 kernel: $(OUTPUT)system.bin sym
 
@@ -52,6 +58,23 @@ bootloader : $(OUTPUT)boot.bin $(OUTPUT)loader.bin
  
 sym : $(OUTPUT)kernel.sym
 
+#--------------user_programer--------
+
+user : $(OUTPUT)user.bin
+
+$(OUTPUT)user0.o : $(KERNEL)/us_pro/user0.asm
+	nasm -f elf32 $^ -o $@ $(DEBUG) 
+
+$(OUTPUT)user.o : $(KERNEL)/us_pro/user.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)u.bin : $(OUTPUT)user0.o $(OUTPUT)user.o
+	$(LD)  -m elf_i386 -static $^ -o $@ -Ttext 0
+
+$(OUTPUT)user.bin: $(OUTPUT)u.bin
+	objcopy -O binary $< $@
+	-dd conv=notrunc if=$@ of=$(MASTERDISK) bs=512 count=10 seek=410
+
 #------------dataS------------------
 $(OUTPUT)str.o : $(DATAS)/str/str.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
@@ -61,17 +84,24 @@ $(OUTPUT)arrayList.o : $(DATAS)/list/arrayList.c
 
 $(OUTPUT)Bitmap.o : $(DATAS)/set/Bitmap.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)RBTree.o : $(DATAS)/tree/ST/RBTree.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
 #------------kernel-----------------
 kernelDep=$(OUTPUT)kernel.o $(OUTPUT)roodos.o \
-	$(OUTPUT)arrayList.o $(OUTPUT)Bitmap.o $(OUTPUT)str.o \
+	$(OUTPUT)arrayList.o $(OUTPUT)Bitmap.o $(OUTPUT)str.o $(OUTPUT)RBTree.o \
 	$(OUTPUT)assert.o \
-	$(OUTPUT)tss.o $(OUTPUT)process.o\
+	$(OUTPUT)tss.o $(OUTPUT)process.o $(OUTPUT)schedule.o  \
 	$(OUTPUT)timer.o $(OUTPUT)pic.o $(OUTPUT)interrupt.o $(OUTPUT)IET.o \
 	$(OUTPUT)physicalMem.o $(OUTPUT)virtualMem.o $(OUTPUT)memory.o \
 	$(OUTPUT)kernel0.o \
 	$(OUTPUT)io.o
 
 $(OUTPUT)roodos.o : $(KERNEL)/roodos.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)schedule.o : $(KERNEL)/process/schedule.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
 $(OUTPUT)process.o : $(KERNEL)/process/process.c
@@ -122,6 +152,9 @@ $(OUTPUT)system.bin: $(OUTPUT)kernel.bin
 
 $(OUTPUT)kernel.sym: $(OUTPUT)kernel.bin
 	objcopy --only-keep-debug $^ $@
+
+$(OUTPUT)system.map: $(OUTPUT)kernel.bin
+	nm $< | sort > $@
 
 #------------kernel-----------------
 
