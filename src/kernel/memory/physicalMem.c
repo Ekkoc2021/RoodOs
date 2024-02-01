@@ -234,7 +234,7 @@ uint32_t ReturnPhyPage(memPool *p, uint32_t phyAddr)
     // 从大物理块中推导出在那个索引表中
     uint32_t indexOfBitmap = (pageAddr - p->e->memBlocks[indexOfblock].addr) / 4096 + p->e->memBlocks[indexOfblock].bitMinIndex;
     // 从索引表清除位
-    // 找到对应索引表
+    // 找到对应索引表d
     uint32_t indexOfIndexList = indexOfBitmap / (8 * 1024);
     Bitmap *b = &((indexNode *)(p->indexList.data))[indexOfIndexList].indexBit;
     clearBit(b, indexOfBitmap - p->e->memBlocks[indexOfblock].bitMinIndex);

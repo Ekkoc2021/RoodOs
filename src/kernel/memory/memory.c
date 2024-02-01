@@ -69,40 +69,6 @@ memoryMarket *initMemoryManagement(uint32_t size, void *addr, void *kernelVAddr,
     ASSERT(kernelPDEMapping(&market)); // 内存不够就映射失败!
     log("--memory module init successful! --\n");
     showPool(PhyPool);
-    // memdebug(&market);
-    // 内核全映射PD全映射
-
-    // 测试切换页
-
-    // memdebug(&market);
-
-    // uint32_t pagePaddr;
-    // uint32_t pageVaddr = mallocPage_k(&market, &pagePaddr);
-    // initUserPd(market.virMemPool, pageVaddr);
-    // switchUser(market.virMemPool, market.virMemPool->userPD, pagePaddr, pageVaddr);
-
-    // pageVaddr = mallocPage_k(&market, &pagePaddr);
-    // memdebug(&market);
-    // freePage(&market, pageVaddr);
-    // memdebug(&market);
-    // pageVaddr = mallocPage_k(&market, &pagePaddr);
-    // initUserPd(market.virMemPool, pageVaddr);
-    // switchUser(market.virMemPool, market.virMemPool->userPD, pagePaddr, pageVaddr);
-    // memdebug(&market);
-
-    // 测试分配多页内存的函数:先分配多页,再释放,整理内存,然后观察分配到的内存一致与否
-
-    // uint32_t msize = 100;
-    // pageVaddr = mallocMultpage_k(&market, msize);
-    // memdebug(&market);
-    // freeNPage(&market, pageVaddr, msize);
-    // memdebug(&market);
-    // tidy(&market);
-    // memdebug(&market);
-    // pageVaddr = mallocMultpage_k(&market, msize);
-    // memdebug(&market);
-    // freeNPage(&market, pageVaddr, msize);
-    // memdebug(&market);
     return &market;
 }
 
@@ -234,7 +200,7 @@ void freePage(memoryMarket *market, uint32_t vAddr)
     uint32_t indexOfPT = (vAddr >> 12) & 0b1111111111;
 
     // 获得对应PT的物理地址
-    uint32_t PTPAddr = getPDE(market->virMemPool, indexOfPD) & (PAGEATTR);
+    uint32_t PTPAddr = getPDE(market->virMemPool, indexOfPD) & (~PAGEATTR);
 
     // 获得对应PTE包含的物理地址
     uint32_t paddr = getPTE(PTPAddr, indexOfPT) & (~PAGEATTR);
@@ -358,4 +324,8 @@ void freeNPage(memoryMarket *market, uint32_t vaddr, uint32_t n)
         vaddr += 4096;
     }
     Resume_irq(status);
+}
+
+void freeUser(memoryMarket *market)
+{
 }
