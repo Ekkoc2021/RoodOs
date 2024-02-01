@@ -73,6 +73,20 @@ void tr(linkedList *list)
 #endif
 //---------------------------------------------------------
 
+void mergeList(linkedList *dest, linkedList *source)
+{
+    listNode *temp;
+    while (1)
+    {
+        temp = deleteIn(source, 0);
+        if (temp == &(source->head))
+        {
+            return;
+        }
+        add(dest, temp);
+    }
+}
+
 // 初始化 链表
 void initLinkedList(linkedList *list)
 {
@@ -115,7 +129,7 @@ listNode *delete(linkedList *list, void *data, char (*compareTo)(void *A, void *
     }
     return temp;
 }
-listNode *deleteIn(linkedList *list, void *data, linkdeLengthType index)
+listNode *deleteIn(linkedList *list, linkdeLengthType index)
 {
 
     listNode *temp = list->head.next;
@@ -181,4 +195,14 @@ int insert(linkedList *list, listNode *n, int index)
     return index;
 }
 
-//----------------stack--------------------------
+void deleteNode(linkedList *list, listNode *node)
+{
+    // => => =>
+    // <= <= <=
+    listNode *f = node->pre;
+    // =>   =>
+    // <=   <=
+    f->next = node->next;
+    f->next->pre = f;
+    list->length--;
+}

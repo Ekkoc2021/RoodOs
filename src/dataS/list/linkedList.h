@@ -35,7 +35,7 @@ struct LinkedList
  * @param {linkdeLengthType} index
  * @return {*}
  */
-listNode *deleteIn(linkedList *list, void *data, linkdeLengthType index);
+listNode *deleteIn(linkedList *list, linkdeLengthType index);
 /**
  * @description: 初始化链表
  * @return {*}
@@ -79,4 +79,18 @@ listNode *search(linkedList *list, void *data, char (*compareTo)(void *A, void *
  * @return {*}
  */
 int insert(linkedList *list, listNode *n, int index);
+
+/**
+ * @description: 确保node属于list,直接删除node
+ * @param {linkedList} *list
+ * @param {node} *n
+ */
+void deleteNode(linkedList *list, listNode *node);
+
+/**
+ * @description: 合并list,将source中的节点合并到dest
+ * @param {linkedList} *list
+ * @param {node} *n
+ */
+void mergeList(linkedList *dest, linkedList *source);
 #endif

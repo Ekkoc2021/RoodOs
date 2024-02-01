@@ -271,7 +271,7 @@ int main(int argc, char const *argv[])
     int a111;
     RBNode *n;
 
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 10; i++)
     {
 
         initRBTree(&tree_test, &nil, compareTo);
@@ -287,10 +287,11 @@ int main(int argc, char const *argv[])
                 return 0;
             }
 
-            *x = rand() % 250;
+            *x = j;
             n->data = x;
             // LevelOrder(&tree_test);
-            insert(&tree_test, n);
+            insertRBT(&tree_test, n);
+
             if (!isRBTree(&tree_test, tree_test.root))
             {
                 LevelOrder(&tree_test);
@@ -299,12 +300,12 @@ int main(int argc, char const *argv[])
                 return 0;
             }
         }
+
         isRBTree(&tree_test, tree_test.root);
-        for (int i = 0; i < 250; i++)
+        for (int i = 0; i < 50; i++)
         {
-            int a111 = 250;
-            t = search(&tree_test, &a111);
-            if (t != tree_test.Nil && *(int *)(t->data) != a111)
+            t = searchRBT(&tree_test, &i);
+            if (t != tree_test.Nil && *(int *)(t->data) != i)
             {
                 printf("搜索失败!");
                 // LevelOrder(&tree_test);
@@ -312,11 +313,16 @@ int main(int argc, char const *argv[])
         }
 
         // LevelOrder(&tree_test);
-        for (int i = 0; i < 50; i++)
+        for (int i = 0; i < 1250; i++)
         {
-            a111 = rand() % 250;
-            t = delete (&tree_test, &a111);
-            if (!isRBTree(&tree_test, tree_test.root))
+            a111 = rand() % 50;
+            int l = tree_test.length;
+            // LevelOrder(&tree_test);
+            t = deleteRBT(&tree_test, &a111);
+
+            // printf("原来长度 %d , 长度 %d\n", l, tree_test.length);
+            // LevelOrder(&tree_test);
+            if (!isRBTree(&tree_test, tree_test.root) || (t != tree_test.Nil && l - 1 != tree_test.length))
             {
                 printf("随机删除:%d 测试失败!\n", a111);
                 LevelOrder(&tree_test);
@@ -444,6 +450,8 @@ void LevelOrder(RBTree *tree)
 #endif
 
 //----------------------------------------------------------------------------------
+
+// 删除某个节点
 
 // 初始化一棵红黑树
 void initRBTree(RBTree *tree, RBNode *nil, char (*compareTo)(void *A, void *B))
@@ -608,65 +616,130 @@ void del_Adjust(RBTree *tree, RBNode *p, char isLeft)
         }
     }
 }
-RBNode *delete(RBTree *tree, void *data)
+RBNode *deleteRBT(RBTree *tree, void *data)
 {
-    //
-    RBNode *d1 = search(tree, data);
-    if (d1 == tree->Nil)
-    {
-        return d1;
-    }
-
-    // findRealNode
-    RBNode *d = findRealDelNode(tree, d1);
-
-    if (d == tree->root)
-    {
-        tree->root = tree->Nil;
-        return d;
-    }
-
-    // 替换数据
-    void *temp = d1->data;
-    d1->data = d->data;
-    d->data = temp;
-    // d是真正要删除的数据,d的两个子节点都是叶子节点
-    //----------是红色
-    if (d->color == RED)
-    {
-        if (d->p->left == d)
-        {
-            d->p->left = tree->Nil;
-            return d;
-        }
-        d->p->right = tree->Nil;
-        return d;
-    }
-    //-------是黑色,但是有一个红色子节点,这种情况已经被排除
-
-    //-----是黑色,且没有任何叶子节点
-
-    // 删除
-    RBNode *p = d->p;
-
-    char isLeft = 0; // 矮一截的是左还是右
-    if (d->p->left == d)
-    {
-        d->p->left = tree->Nil;
-        isLeft = 1;
-    }
-    else
-    {
-        d->p->right = tree->Nil;
-    }
-    //----------------------------------------
-    del_Adjust(tree, p, isLeft); // 左右树不
-    return d;
+    // d1 被删除节点
+    RBNode *d1 = searchRBT(tree, data);
+    return deleteNodeRBT(tree, d1);
 
     // 会不会最终执行完后,根节点变红?所有情况,没有一个主动将p改为红色
 }
+void RBTNodeCpy(RBTree *tree, RBNode *dest, RBNode *source)
+{
+    if (dest != source)
+    {
+        dest->color = source->color;
+        dest->left = source->left;
+        dest->right = source->right;
+        // 被删除节点是左还是右
+        if (source->p->left == source)
+        {
+            source->p->left = dest;
+        }
+        else
+        {
+            source->p->right = dest;
+        }
 
-RBNode *search(RBTree *tree, void *data)
+        source->left->p = dest;
+        source->right->p = dest;
+        dest->p = source->p;
+        if (source == tree->root)
+        {
+            tree->root = dest;
+        }
+    }
+}
+RBNode *deleteNodeRBT(RBTree *tree, RBNode *target)
+{
+    // d1 被删除节点
+    if (target == tree->Nil)
+    {
+        return target;
+    }
+    tree->length--;
+    // findRealNode
+    RBNode *realTarget = findRealDelNode(tree, target);
+    if (realTarget == tree->root)
+    { // 如果d是根,那么d1也必然是根节点,同时至多有两个有效节点
+        // findRealDelNode使得如果是两个节点情况不会进入到这个if里面
+        tree->root = tree->Nil;
+        return target;
+    }
+
+    // 记录实际删除节点位置信息,调整时使用
+
+    char isLeft = 0;
+    if (realTarget->p->left == realTarget)
+    {
+        isLeft = 1;
+    }
+
+    // 替换数据 如果返回数据对节点要求不高,直接替换data域即可
+    // void *temp = realTarget->data;
+    // realTarget->data = target->data;
+    // target->data = temp;
+
+    // 实际删除节点d是红色
+    if (realTarget->color == RED)
+    {
+        // 将实际删除节点的红黑树节点信息重置为目标删除节点
+
+        // 两个子节点只能为黑色,且都为叶子节点
+        if (realTarget->p->left == realTarget)
+        {
+            realTarget->p->left = tree->Nil;
+        }
+        else
+        {
+            realTarget->p->right = tree->Nil;
+        }
+        RBTNodeCpy(tree, realTarget, target);
+        return target;
+    }
+
+    // 实际删除节点若存在有效子节点:必为红色
+    RBNode *son = tree->Nil; // 如果实际删除节点存在有效子节点,那么son会指向有效子节点
+    if (realTarget->left->color == RED)
+    {
+        son = realTarget->left;
+        son->color = BLACK;
+        son->p = realTarget->p;
+    }
+    if (realTarget->right->color == RED)
+    {
+        son = realTarget->right;
+        son->color = BLACK;
+        son->p = realTarget->p;
+    }
+    if (isLeft)
+    {
+        realTarget->p->left = son;
+    }
+    else
+    {
+        realTarget->p->right = son;
+    }
+
+    // 记录下可能发生不平衡的点的父亲:p,用于调整使用
+    RBNode *p = realTarget->p; // p指代如果需要调整时的父亲
+    if (p == target)
+    {
+        // 如果p就是target,需要修改p
+        p = realTarget;
+    }
+
+    RBTNodeCpy(tree, realTarget, target);
+    if (son != tree->Nil)
+    {
+        // 不用调整
+        return target;
+    }
+    // 拷贝目标删除节点信息到实际删除节点信息
+    del_Adjust(tree, p, isLeft);
+    return target;
+}
+RBNode *searchRBT(RBTree *tree, void *data)
 {
 
     RBNode *d = tree->root;
@@ -719,7 +792,7 @@ RBNode *findLocation(RBTree *tree, void *data)
     return d;
 }
 
-char insert(RBTree *tree, RBNode *node)
+char insertRBT(RBTree *tree, RBNode *node)
 {
     if (node == tree->Nil)
     {
@@ -992,31 +1065,7 @@ RBNode *delete_min(RBTree *tree)
     }
 
     RBNode *min = minimum(tree, tree->root);
-    // min是根节点 24 1/28 min到根节点不一定意味着只有一个节点
-    if (min == tree->root)
-    {
-        tree->root = tree->root->right;
-        tree->root->color = BLACK;
-        tree->length--;
-        return min;
-    }
-
-    // min 不是根节点 一定没有左树
-    min->p->left = min->right;
-    if (min->right != tree->Nil)
-    {
-        min->right->p = min->p;
-    }
-
-    // min 是红色节点
-    if (min->color == RED)
-    {
-        return min;
-    }
-
-    // 不是红色
-    del_Adjust(tree, min->p, 1);
-    return min;
+    return deleteNodeRBT(tree, min);
 }
 RBNode *delete_max(RBTree *tree)
 {
@@ -1027,28 +1076,5 @@ RBNode *delete_max(RBTree *tree)
     }
 
     RBNode *max = maximum(tree, tree->root);
-    // min是根节点
-    if (max == tree->root)
-    {
-        tree->root = tree->root->left;
-        tree->root->color = BLACK;
-        tree->length--;
-        return max;
-    }
-
-    // max 不是根节点 一定没有右树
-    max->p->right = max->left;
-    if (max->right != tree->Nil)
-    {
-        max->left->p = max->p;
-    }
-
-    // min 是红色节点
-    if (max->color == RED)
-    {
-        return max;
-    }
-    // 不是红色
-    del_Adjust(tree, max->p, 0);
-    return max;
+    return deleteNodeRBT(tree, max);
 }

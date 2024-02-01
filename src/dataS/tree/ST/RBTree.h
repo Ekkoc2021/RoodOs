@@ -11,7 +11,7 @@
 #define RBTREE_H_1229
 #define BLACK 0
 #define RED 1
-// #define RB_TREE_DEBUG // 调试
+// #define RB_TREE_DEBUG   // 调试
 typedef int RBTLenType; // 定义长度类型!
 typedef struct RBNode RBNode;
 typedef struct RBTree RBTree;
@@ -57,7 +57,7 @@ void initRBTree(RBTree *tree, RBNode *nil, char (*compareTo)(void *A, void *B));
  * @param RBNode *node
  * @return   1 成功,0 失败
  */
-char insert(RBTree *tree, RBNode *node);
+char insertRBT(RBTree *tree, RBNode *node);
 
 // 查找操作
 /**
@@ -66,7 +66,7 @@ char insert(RBTree *tree, RBNode *node);
  * @param void *data 要查找的数据,
  * @return  * 返回已经搜索到的节点数据
  */
-RBNode *search(RBTree *tree, void *data);
+RBNode *searchRBT(RBTree *tree, void *data);
 
 /**
  * @description: 删除操作,根据传入的数据,而非Node节点,最终会返回一个Node
@@ -75,7 +75,7 @@ RBNode *search(RBTree *tree, void *data);
  * @param void *data 删除的数据的地址!
  * @return  返回删除的节点的数据,根据需要处理该节点,红黑树不负责销毁节点
  */
-RBNode *delete(RBTree *tree, void *data);
+RBNode *deleteRBT(RBTree *tree, void *data);
 
 /**
  * @description: 查找红黑树中的最大值
@@ -105,4 +105,7 @@ RBNode *delete_min(RBTree *tree);
  * @return {*}
  */
 RBNode *delete_max(RBTree *tree);
+
+RBNode *deleteNodeRBT(RBTree *tree, RBNode *node);
+
 #endif
