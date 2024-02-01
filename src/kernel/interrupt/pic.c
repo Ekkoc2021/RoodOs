@@ -39,15 +39,21 @@ unsigned char readSlaveIMR()
     outb(0xA0, 0x0B);
     return inb(0xA1); // 读取从片 IMR 寄存器的值
 }
-
+void startKeyboardInterrupt()
+{
+    log("start init keyboard interrupt...\n");
+    unsigned char masterIMR = readMasterIMR();
+    outb(PIC_M_DATA, masterIMR & 0xfd);
+    log("keyboard  interrupts successful !\n");
+}
 void startTimerInterrupt()
 {
-    log("start clock interrupts...\n");
+    log("start init clock interrupts...\n");
     unsigned char slaveIMR = readSlaveIMR();
     unsigned char masterIMR = readMasterIMR();
     /* 打开主片上IR0,也就是目前只接受时钟产生的中断 */
-    outb(PIC_M_DATA, 0xfe); // 0为开启,1为关闭,打开master的1号中断,也就是0x20
-    outb(PIC_S_DATA, 0xff); //
+    outb(PIC_M_DATA, masterIMR & 0xfe); // 0为开启,1为关闭,打开master的1号中断,也就是0x20
+    // outb(PIC_S_DATA, 0xff);             //
 
     unsigned char newSlaveIMR = readSlaveIMR();
     // 输出二进制表示中哪些 IRQ 线被屏蔽

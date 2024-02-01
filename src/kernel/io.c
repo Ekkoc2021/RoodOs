@@ -289,7 +289,7 @@ void scroll()
     short destination = 0;
 
     int count = getCInd() * 2;
-    for (int i = 0; i < count; i++)
+    for (int i = 0; i < count + 1; i++)
     {
         address[destination] = address[source];
         source = source + 1;
@@ -340,8 +340,24 @@ void print(char *message)
             continue;
         }
 
+        if (message[i] == '\b')
+        {
+            cursorIndex = cursorIndex - 2;
+            setCInd(cursorIndex / 2);
+            show[cursorIndex] = ' ';
+            i++;
+            continue;
+        }
+
         show[cursorIndex] = message[i];
         cursorIndex = cursorIndex + 2;
+        // 检查光标位置
+        column = (cursorIndex / 2) / 80;
+        if (column == 25)
+        {
+            scroll(); // 向上滚动一行
+            cursorIndex = 24 * 80 * 2;
+        }
         setCInd(cursorIndex / 2);
         i++;
     }

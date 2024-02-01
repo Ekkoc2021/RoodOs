@@ -7,4 +7,5 @@
 #define PIC_S_DATA 0xa1 // 从片的数据端口是0xa1
 void initPIC();
 void startTimerInterrupt();
+void startKeyboardInterrupt();
 #endif

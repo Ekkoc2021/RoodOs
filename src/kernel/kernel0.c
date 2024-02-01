@@ -31,18 +31,20 @@ int main(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePh
 
     //-------测试-----
     char buff[50];
-    for (uint16_t i = 1; i < 25; i++)
-    {
-        sprintf_(buff, "task %d", i);
+    // for (uint16_t i = 1; i < 25; i++)
+    // {
+    //     sprintf_(buff, "task %d", i);
 
-        createProcess(i % 3 + 1, strlen_(buff), buff);
-    }
+    //     createProcess(i % 3 + 1, strlen_(buff), buff);
+    // }
 
-    destroyPCB(manager.task[1]);
-    destroyPCB(manager.task[4]);
-    destroyPCB(manager.task[6]);
-    destroyPCB(manager.task[7]);
-    destroyPCB(manager.task[9]);
+    // destroyPCB(manager.task[1]);
+    // destroyPCB(manager.task[4]);
+    // destroyPCB(manager.task[6]);
+    // destroyPCB(manager.task[7]);
+    // destroyPCB(manager.task[9]);
+    char *name = "shell";
+    createProcess(10, strlen_(name), name);
     switch_to_user_mode();
 }
 void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePhAddr)
@@ -54,8 +56,6 @@ void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint3
     roodos.market = initMemoryManagement(memCount, (void *)memAddr, (void *)KernelVAddr, (void *)pTablePhAddr);
     interruptInit();
     initProcess(roodos.tss, roodos.gdt);
-
-    return 0;
 }
 void initRoodOs()
 {

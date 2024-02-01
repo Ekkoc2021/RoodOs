@@ -9,6 +9,7 @@ uint32_t i = 0;                            // 测试,可以删除
 extern void intr_exit();
 extern void schedule();
 extern void yeid();
+extern void intr_keyboard_handler();
 void sys_call(StackInfo *s)
 {
     switch (s->EAX)
@@ -21,6 +22,13 @@ void sys_call(StackInfo *s)
         // break;
     case 11: // yeild,主动让出cpu
         yeid();
+        asm volatile(
+            "movl %0, %%eax\n "
+            "movl %%eax, %%esp\n "
+            "jmp intr_exit\n"
+            :
+            : "r"(manager.now->esp0) // 输入操作数：myVar表示源操作数
+        );
         break;
     default:
         break;
@@ -28,7 +36,6 @@ void sys_call(StackInfo *s)
 }
 void interruptHandler(uint32_t IVN, ...)
 {
-    // log("interrupt test successful ! IVN = %d , time = %d\n ", IVN, i);
     if (IVN == 0x27 || IVN == 0x2f)
     {           // 0x2f是从片8259A上的最后一个irq引脚，保留
         return; // IRQ7和IRQ15会产生伪中断(spurious interrupt),无须处理。
@@ -37,11 +44,18 @@ void interruptHandler(uint32_t IVN, ...)
     // 根据IVN 调用不同中断函数
     switch (IVN)
     {
+    case 14:
+        uint32_t page_fault_vaddr = 0;
+        // asm volatile("movl %0, %%cr3" : : "r"(paddr) : "memory");
+        asm("movl %%cr2, %0" : "=r"(page_fault_vaddr) : :); // cr2是存放造成page_fault的地址
+        log("#PF : %d / %p \n", page_fault_vaddr, page_fault_vaddr);
+        logStackInfo(&IVN);
+        hlt();
+        break;
     case 32:
         // 时钟中断,发生切换
         // __asm__("xchg %%bx,%%bx" ::);
         schedule();
-
         // 切换栈
         asm volatile(
             "movl %0, %%eax\n "
@@ -52,12 +66,9 @@ void interruptHandler(uint32_t IVN, ...)
         );
         // __asm__("xchg %%bx,%%bx" ::);
         break;
-
-    case 14:
-        uint32_t page_fault_vaddr = 0;
-        // asm volatile("movl %0, %%cr3" : : "r"(paddr) : "memory");
-        asm("movl %%cr2, %0" : "=r"(page_fault_vaddr) : :); // cr2是存放造成page_fault的地址
-        log("%d / %p \n", page_fault_vaddr, page_fault_vaddr);
+    case 0x21:
+        // 键盘中断
+        intr_keyboard_handler();
         break;
     case 0x30:
         // system_call 系统调用
@@ -146,8 +157,12 @@ InterruptDescriptor *interruptInit()
     initPIC();
     // 初始化时钟中断
     timer_init();
+
     // 开启时钟中断
-    startTimerInterrupt();
+    // startTimerInterrupt();
+
+    // 开启键盘中断
+    startKeyboardInterrupt();
 
     return IDT;
 }

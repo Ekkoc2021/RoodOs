@@ -134,20 +134,20 @@ void function()
     sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d\n", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1);
     while (1)
     {
-        __asm__ __volatile__(
-            "movl $1, %%eax\n"
-            "movl %0, %%ebx\n"
-            "int $0x30\n"
-            :
-            : "r"(buff)
-            : "%eax", "%ebx");
+        // __asm__ __volatile__(
+        //     "movl $1, %%eax\n"
+        //     "movl %0, %%ebx\n"
+        //     "int $0x30\n"
+        //     :
+        //     : "r"(buff)
+        //     : "%eax", "%ebx");
 
-        __asm__ __volatile__(
-            "movl $11, %%eax\n"
-            "int $0x30\n"
-            :
-            :
-            : "%eax");
+        // __asm__ __volatile__(
+        //     "movl $11, %%eax\n"
+        //     "int $0x30\n"
+        //     :
+        //     :
+        //     : "%eax");
     }
 }
 
