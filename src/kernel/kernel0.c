@@ -9,7 +9,10 @@
 #include "include/kernel.h";
 
 kernel roodos;
-extern void intr_exit();
+extern void switch_to_user_mode();
+extern void destroyPCB(PCB *pcb); // 不会检查pcb是否正确
+extern processManager manager;
+uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...);
 void initRoodOs();
 void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePhAddr);
 // extern memoryMarket *market; 已经定义过了
@@ -25,6 +28,22 @@ int main(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePh
     roodos.tss = (TSS *)tssVaddr;
     printf("___%s__%s_ \nkernel p\\v addr:0x%p\\0x%p\n", roodos.name, roodos.version, roodos.physicalAddr, roodos.virtualAddr);
     init_all_module(memCount, memAddr, KernelVAddr, pTablePhAddr);
+
+    //-------测试-----
+    char buff[50];
+    for (uint16_t i = 1; i < 25; i++)
+    {
+        sprintf_(buff, "task %d", i);
+
+        createProcess(i % 3 + 1, strlen_(buff), buff);
+    }
+
+    destroyPCB(manager.task[1]);
+    destroyPCB(manager.task[4]);
+    destroyPCB(manager.task[6]);
+    destroyPCB(manager.task[7]);
+    destroyPCB(manager.task[9]);
+    switch_to_user_mode();
 }
 void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePhAddr)
 {
@@ -35,13 +54,6 @@ void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint3
     roodos.market = initMemoryManagement(memCount, (void *)memAddr, (void *)KernelVAddr, (void *)pTablePhAddr);
     interruptInit();
     initProcess(roodos.tss, roodos.gdt);
-
-    enable_irq();
-    // 往当前0特权级栈填充数据
-    while (1)
-    {
-        log("hello wolrd!\n");
-    }
 
     return 0;
 }
