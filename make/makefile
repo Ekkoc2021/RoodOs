@@ -88,9 +88,11 @@ $(OUTPUT)Bitmap.o : $(DATAS)/set/Bitmap.c
 $(OUTPUT)RBTree.o : $(DATAS)/tree/ST/RBTree.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
+$(OUTPUT)linkedList.o : $(DATAS)/list/linkedList.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 #------------kernel-----------------
 kernelDep=$(OUTPUT)kernel.o $(OUTPUT)roodos.o \
-	$(OUTPUT)arrayList.o $(OUTPUT)Bitmap.o $(OUTPUT)str.o $(OUTPUT)RBTree.o \
+	$(OUTPUT)arrayList.o $(OUTPUT)Bitmap.o $(OUTPUT)str.o $(OUTPUT)RBTree.o $(OUTPUT)linkedList.o\
 	$(OUTPUT)assert.o \
 	$(OUTPUT)tss.o $(OUTPUT)process.o $(OUTPUT)schedule.o  \
 	$(OUTPUT)timer.o $(OUTPUT)pic.o $(OUTPUT)interrupt.o $(OUTPUT)IET.o \
