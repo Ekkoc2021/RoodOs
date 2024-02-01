@@ -8,9 +8,23 @@ extern processManager manager;             // 进程管理器
 uint32_t i = 0;                            // 测试,可以删除
 extern void intr_exit();
 extern void schedule();
+extern void yeid();
 void sys_call(StackInfo *s)
 {
-    log(s->EAX);
+    switch (s->EAX)
+    {
+    case 1: // 输出中断
+        log_qemu_printf(s->EBX);
+        break;
+        // case 10: // 创建进程
+        //     log_qemu_printf(s->EBX);
+        // break;
+    case 11: // yeild,主动让出cpu
+        yeid();
+        break;
+    default:
+        break;
+    }
 }
 void interruptHandler(uint32_t IVN, ...)
 {

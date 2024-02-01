@@ -7,7 +7,7 @@
 // 设置 计数器 0 的初始值,只要确定中断信号的频率即可
 
 // 《操作系统真象还原》
-#define IRQ0_FREQUENCY 200 // 中断信号的频率 1 秒钟 200次 tick大约5ms
+#define IRQ0_FREQUENCY 100 // 中断信号的频率 1 秒钟 200次 tick大约5ms
 #define INPUT_FREQUENCY 1193180
 #define COUNTER0_VALUE INPUT_FREQUENCY / IRQ0_FREQUENCY // 寄存器数值
 #define CONTRER0_PORT 0x40
