@@ -14,11 +14,13 @@
 processManager manager;
 extern memoryMarket market;
 extern kernel roodos;
-extern PCB *findBestProcess();
+extern PCB *theNextProcess();
 extern void insertWait(PCB *pcb);
 extern void schedule();
 extern void initSchedule();
-TSS *Tss;
+extern void removeProcess(PCB *pcb);
+extern void yeid();
+extern TSS *Tss;
 
 // 为pcb分配内存
 void initPCB(PCB *pcb, char *name, uint16_t id)
@@ -86,7 +88,9 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
     {
         pcb->u.PT[i] = -1;
     }
-
+    pcb->father = manager.now;
+    initLinkedList(&(pcb->children));
+    add(&(manager.now->children), &(pcb->tag));
     return pcb;
 }
 
@@ -109,91 +113,194 @@ void usePID(uint32_t pcbAddr, uint16_t pid)
 {
     manager.task[pid] = pcbAddr;
 }
+
+void initStack(StackInfo *s, uint32_t eip, uint32_t esp3)
+{
+    s->EIP = eip;
+    s->IVN = 32;
+    s->EFLAGS = (EFLAGS_IOPL_0 | EFLAGS_MBS | EFLAGS_IF_1);
+    s->CS = 0b11011;
+    s->oldSS = 0b100011;
+    s->oldESP = esp3;
+    s->GS = 0b100011;
+    s->FS = 0b100011;
+    s->ES = 0b100011;
+    s->DS = 0b100011;
+}
 // 反正也是在内核空间测试进程调度
-//
 void function()
 {
     char buff[128];
     sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d\n", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1);
     while (1)
     {
-
-        asm volatile(
-            "movl %0, %%eax\n "
-            "int $0x30\n "
+        __asm__ __volatile__(
+            "movl $1, %%eax\n"
+            "movl %0, %%ebx\n"
+            "int $0x30\n"
             :
-            : "r"(buff));
+            : "r"(buff)
+            : "%eax", "%ebx");
+
+        __asm__ __volatile__(
+            "movl $11, %%eax\n"
+            "int $0x30\n"
+            :
+            :
+            : "%eax");
     }
 }
-//
-PCB *c;
-StackInfo *s;
-char createProcess(uint16_t pageSize, uint16_t weight, uint16_t argsLength, char *name, ...)
+
+/*
+    获取可用PID
+    创建PCB:分配PCB内存,分配0特权级栈内存
+    切换到对应PCB页表,解析用户程序头确定分配内存,展开用户程序到指定内存
+    初始化0特权级栈:EIP
+*/
+uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...)
 {
     // 创建pcb,读取磁盘,设置esp0
     uint16_t pid = getPID();
     if (pid == 0)
     {
-        return false;
+        return 0;
     }
 
     // 创建PCB:pcb页,以及0特权级栈
     PCB *pcb = createPCB(name, pid, weight);
     usePID(pcb, pid);
-    c = pcb;
-    // 初始化0特权级栈
-    // StackInfo *s; todo..
-    s = (StackInfo *)(pcb->esp0);
 
     // 切换到用户页表项
     switchUser(market.virMemPool, &pcb->u, pcb->pagePAddr, pcb->pageVAddr);
 
-    // -----根据name加载用户程序 todo 加载用户程序,并设置-------------------
+    /*
+        todo 24 1 31:
+        根据名称在磁盘加载用户程序到内存,这里不涉及加载
+        直接将内核某个函数设置为用户程序,同时直接分配内存
+    */
     uint32_t paddr;
-    uint32_t me = mallocMultpage_u(&market, pageSize + 1);
+    uint32_t me = mallocMultpage_u(&market, 1);
+    StackInfo *s = (StackInfo *)(pcb->esp0);
+    // 初始化0特权级栈
+    initStack(s, function, (me) + 4096 * (1) - 32 - argsLength * sizeof(char) - 4);
 
-    s->EIP = function;
-
-    // 构建用户上下文
-    s->IVN = 32;
-    s->EFLAGS = (EFLAGS_IOPL_0 | EFLAGS_MBS | EFLAGS_IF_1);
-
-    s->CS = 0b11011;
-    s->oldSS = 0b100011;
-    s->oldESP = (me) + 4096 * (pageSize + 1) - 32 - argsLength * sizeof(char) - 4;
-
-    //------todo 正确性有待商榷
-    // 压入命令行参数
-    // 如果是函数,进入默认是通过call进入(考虑压入eip),而不是直接跳转,如果是有带头汇编一起编译,则不需要考虑
+    //------todo 24 1 31 -------
+    /*
+        正确性有待具体测试,目前看来缺陷很大
+        根据传入参数个数,将数据压入用户栈中
+    */
     va_list args;               // 定义参数
     va_start(args, argsLength); // 初始化
     memcpy_(s->oldESP + 4, name, argsLength);
-
     va_end(args);
     //-----------------------------
 
-    s->GS = 0b100011;
-    s->FS = 0b100011;
-    s->ES = 0b100011;
-    s->DS = 0b100011;
-
-    //------------------------------todo----------------------
     // 设置pcb为就绪
     pcb->status = WAIT;
     // 往就绪队列中加入该pcb
-    pcb->node.data = pcb;
     insertWait(pcb);
 
     // 切回原用户
-    //-------------------------------------------------------------------
     switchUser(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+    return pid;
 }
 
+// 将某个pcb占用的内存回收,其他进程对某个进程pcb的回收
+void destroyPCB(PCB *pcb)
+{
+    // 是不是应该检查一下删除的pcb是否有效?
+
+    // 从对应的度队列中删除pcb
+    // 现在只有等待队列 todo : 需要考虑其他队列的情况
+    removeProcess(pcb);
+
+    // 在父亲节点中删除pcb
+    PCB *f = (PCB *)(pcb->father);
+    deleteNode(&(f->children), &(pcb->tag));
+
+    // 任务列表中删除
+    manager.task[pcb->id] = 0;
+
+    // 处理其子进程,合并到init线程
+    mergeList(&(manager.init->children), &(pcb->children));
+    /*首先回收用户内存
+        // 搜索用户非空页表项
+        // 找到非空页表项,释放其页表项的页目录中物理内存
+        // 释放页目录项对应内存
+    */
+
+    switchUser(market.virMemPool, &(pcb->u), pcb->pagePAddr, pcb->pageVAddr);
+    userPageDir *u = &(pcb->u);
+    uint32_t PTPaddr;
+    uint32_t temp;
+    uint16_t count;
+    for (uint16_t i = 0; i < 768; i++)
+    {
+        if (u->PT[i] >= 0)
+        {
+
+            // 获取物理页
+            PTPaddr = getPDE(market.virMemPool, i) >> 12 << 12;
+            // 说明分配有内存,至少分配有页目录
+            if (u->PT[i] > 0)
+            {
+                // 清理页
+                count = 0;
+                for (uint16_t j = 0; j < 1024; j++)
+                {
+
+                    temp = getPTE(PTPaddr, j) & 0xFFFFF000;
+                    if (temp != 0)
+                    {
+                        ReturnPhyPage(market.phyPool, temp);
+                        count++;
+                    }
+                    if (count == u->PT[i])
+                    {
+                        break;
+                    }
+                }
+            }
+            // 归还
+            ReturnPhyPage(market.phyPool, PTPaddr);
+        }
+    }
+
+    switchUser(market.virMemPool, &manager.now->u, manager.now->pagePAddr, manager.now->pageVAddr);
+    // 回收页表内存
+    freePage(&market, pcb->pageVAddr);
+    // 回收esp0内存
+    freePage(&market, pcb->esp0);
+    // 回收pcb占用内存
+    freePage(&market, pcb);
+}
+
+// 进程拷贝
+
+// pcb共享==>线程
+
 // 进程模块
+
+// 切换到3特权级,在等待队列中至少一个用户程序
+void switch_to_user_mode()
+{
+    // 找到一个可运行的进程,切换到对应进程==>切换到3特权级
+    manager.now = theNextProcess();
+    switchUser(market.virMemPool, &manager.now->u, manager.now->pagePAddr, manager.now->pageVAddr);
+    update_tss_esp(Tss, manager.now->esp0);
+    asm volatile(
+        "movl %0, %%eax\n "
+        "movl %%eax, %%esp\n "
+        :
+        : "r"(manager.now->esp0) // 输入操作数：myVar表示源操作数
+    );
+    __asm__("xchg %%bx,%%bx" ::);
+    asm volatile(
+        "jmp intr_exit\n" // 将myVar的值赋给eax寄存器
+    );
+}
 void initProcess(TSS *tss, GDT *gdt)
 {
-
-    Tss = tss;
     initTss(tss, gdt);
 
     // 初始化调度器
@@ -207,34 +314,6 @@ void initProcess(TSS *tss, GDT *gdt)
     initP->pageVAddr = market.virMemPool->vaddr;
     memcpy_(&(initP->u), market.virMemPool->userPD, sizeof(userPageDir));
     manager.now = initP;
-
-    //-------测试-----
-
-    char buff[50];
-    for (uint16_t i = 1; i < 40; i++)
-    {
-        sprintf_(buff, "task%d", i);
-
-        createProcess(1, i % 5, strlen_(buff), buff);
-    }
-
-    manager.now = findBestProcess();
-    switchUser(market.virMemPool, &manager.now->u, manager.now->pagePAddr, manager.now->pageVAddr);
-
-    // (*functionPtr)();
-    // iretd_function();
-    // __asm__("jmp dword 0b11011:0" ::);
-    update_tss_esp(tss, manager.now->esp0);
-    asm volatile(
-        "movl %0, %%eax\n "
-        "movl %%eax, %%esp\n "
-        :
-        : "r"(manager.now->esp0) // 输入操作数：myVar表示源操作数
-    );
-    __asm__("xchg %%bx,%%bx" ::);
-    asm volatile(
-        "jmp intr_exit\n" // 将myVar的值赋给eax寄存器
-    );
-    // ----------------
-    // iretd_function();
+    manager.init = initP;
+    initLinkedList(&(manager.now->children));
 }

@@ -25,7 +25,7 @@ char PCBcmp(PCB *pcb_a, PCB *pcb_b)
     return -1;
 }
 RBTree *wait;
-PCB *findBestProcess()
+PCB *theNextProcess()
 {
     RBNode *best = delete_min(wait);
     if (best == wait->Nil)
@@ -36,9 +36,15 @@ PCB *findBestProcess()
     return best->data;
 }
 
+void removeProcess(PCB *pcb)
+{
+    RBNode *n = deleteNodeRBT(wait, &(pcb->node));
+}
+
 void insertWait(PCB *pcb)
 {
-    insert(wait, &(pcb->node));
+    pcb->node.data = pcb;
+    insertRBT(wait, &(pcb->node));
 }
 
 // 至少有一个活跃的进程,不考虑没有进程的情况
@@ -55,7 +61,7 @@ void schedule()
     p->vruntime++;
     p->runtime = 0;
     // 找到下一个进程
-    manager.now = findBestProcess();
+    manager.now = theNextProcess();
     if (manager.now == NULL)
     {
         manager.now = p;
@@ -72,6 +78,32 @@ void schedule()
     // 切换页表
     switchUser(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
 }
+
+// 当前正在运行的进程主动让出cpu
+void yeid()
+{
+    PCB *p = manager.now;
+    p->vruntime++;
+    p->runtime = 0;
+    // 找到下一个进程
+    manager.now = theNextProcess();
+    if (manager.now == NULL)
+    {
+        manager.now = p;
+        return;
+    }
+
+    manager.now->status = RUNNING;
+    p->status = WAIT;
+    insertWait(p);
+
+    // 修改tss 0特权级栈
+    update_tss_esp(Tss, manager.now->esp0);
+
+    // 切换页表
+    switchUser(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+}
+
 void initSchedule()
 {
     // 初始化wait队列

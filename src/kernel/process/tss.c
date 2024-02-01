@@ -8,7 +8,7 @@
  */
 #include "tss.h"
 #include "../include/kernel.h"
-
+TSS *Tss;
 // 初始化一个tss对象,并返回:只设置0特权级栈的ss与esp
 void initTss(TSS *tss, GDT *gdt)
 {
@@ -17,6 +17,7 @@ void initTss(TSS *tss, GDT *gdt)
     asm volatile(
         "ltr %%ax\n" ::"a"(5 << 3));
     log("tss_init done\n");
+    Tss = tss;
 }
 
 // 设置0特权级栈
