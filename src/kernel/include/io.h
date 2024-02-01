@@ -1,5 +1,3 @@
-
-
 #ifndef OSIO_H
 #define OSIO_H
 #include "str.h"
