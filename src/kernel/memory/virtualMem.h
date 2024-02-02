@@ -97,6 +97,6 @@ void initUserPd(virtualMemPool *pd, uint32_t PageVaddr);
 // void switch_page_dir(uint32_t paddr);
 
 // 切换到用户
-void switchUser(virtualMemPool *pd, userPageDir *upd, uint32_t paddr, uint32_t vaddr);
+void switchUserPage(virtualMemPool *pd, userPageDir *upd, uint32_t paddr, uint32_t vaddr);
 
 #endif

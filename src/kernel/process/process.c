@@ -14,18 +14,40 @@
 processManager manager;
 extern memoryMarket market;
 extern kernel roodos;
+extern void intr_exit();
 extern PCB *theNextProcess();
 extern void insertWait(PCB *pcb);
 extern void schedule();
 extern void initSchedule();
 extern void removeProcess(PCB *pcb);
 extern void yeid();
+extern void switchProcess();
+
+extern void initSem(uint16_t __value, int32_t *semId);
+extern bool sem_open(uint32_t semId);
+extern void semWait(int32_t semId);
+extern void semSignal(int32_t semId);
+
 extern TSS *Tss;
 
-// 为pcb分配内存
-void initPCB(PCB *pcb, char *name, uint16_t id)
+// 将当前进程放入对应的阻塞队列
+void blockProcess(linkedQueue *blockQueue)
 {
+    PCB *p = manager.now;
+    enqueue(blockQueue, &(p->blockTag));
+    p->status = BLOCKED;
+    // 找到下一个进程
+    manager.now = theNextProcess();
+
+    manager.now->status = RUNNING;
+    // 修改tss 0特权级栈
+    update_tss_esp(Tss, manager.now->esp0);
+    // 切换页表
+    switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+
+    switchProcess();
 }
+
 // 解析某个elf文件后,将程序展开后放入内存中,然后调用createProcess创建一个进程
 // 调用createProcess处于内核态,分配好pcb后,直接且先切换到pcb对应的页表,根据elf头文件数据将数据读出,然后写入
 // 有时候程序也不一定是从磁盘读出:就简单的认为程序就是只从磁盘启动
@@ -68,7 +90,7 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
     // 初始化
     pcb->id = id;
     pcb->vruntime = 0;
-    pcb->esp0 = s0 + 4080 - sizeof(StackInfo); // 留一点间隙,计算不好,刚刚好4095,容易犯错
+    pcb->esp0 = s0 + 4080; // 留一点间隙
 
     uint32_t pageVaddr = mallocPage_k(&market, &paddr);
     if (pageVaddr == 0)
@@ -89,7 +111,8 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
         pcb->u.PT[i] = -1;
     }
     pcb->father = manager.now;
-    initLinkedList(&(pcb->children));
+    initLinkedList(&(pcb->children)); // 初始化孩子链表
+    pcb->blockTag.data = pcb;
     add(&(manager.now->children), &(pcb->tag));
     return pcb;
 }
@@ -128,26 +151,44 @@ void initStack(StackInfo *s, uint32_t eip, uint32_t esp3)
     s->DS = 0b100011;
 }
 // 反正也是在内核空间测试进程调度
+int32_t ticket = 10;
+uint32_t seId = -1;
+uint32_t test = 0;
+
 void function()
 {
     char buff[128];
-    sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d\n", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1);
+
     while (1)
     {
-        // __asm__ __volatile__(
-        //     "movl $1, %%eax\n"
-        //     "movl %0, %%ebx\n"
-        //     "int $0x30\n"
-        //     :
-        //     : "r"(buff)
-        //     : "%eax", "%ebx");
-
-        // __asm__ __volatile__(
-        //     "movl $11, %%eax\n"
-        //     "int $0x30\n"
-        //     :
-        //     :
-        //     : "%eax");
+        // if内代码属于临界资源,不允许两个进程同时访问
+        // 也就是说保证两个进程输出的ticket编号永远不能一致
+        asm volatile(
+            "movl $52, %%eax\n"
+            "movl %0, %%ebx\n"
+            "int $0x30\n"
+            :
+            : "r"(seId)
+            : "%eax", "%ebx");
+        if (ticket > 0)
+        {
+            sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d   ticket = %d\n", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1, ticket);
+            asm volatile(
+                "movl $1, %%eax\n"
+                "movl %0, %%ebx\n"
+                "int $0x30\n"
+                :
+                : "r"(buff)
+                : "%eax", "%ebx");
+            ticket--;
+        }
+        asm volatile(
+            "movl $53, %%eax\n"
+            "movl %0, %%ebx\n"
+            "int $0x30\n"
+            :
+            : "r"(seId)
+            : "%eax", "%ebx");
     }
 }
 
@@ -171,7 +212,7 @@ uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...)
     usePID(pcb, pid);
 
     // 切换到用户页表项
-    switchUser(market.virMemPool, &pcb->u, pcb->pagePAddr, pcb->pageVAddr);
+    switchUserPage(market.virMemPool, &pcb->u, pcb->pagePAddr, pcb->pageVAddr);
 
     /*
         todo 24 1 31:
@@ -180,7 +221,7 @@ uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...)
     */
     uint32_t paddr;
     uint32_t me = mallocMultpage_u(&market, 1);
-    StackInfo *s = (StackInfo *)(pcb->esp0);
+    StackInfo *s = (StackInfo *)(pcb->esp0 - sizeof(StackInfo));
     // 初始化0特权级栈
     initStack(s, function, (me) + 4096 * (1) - 32 - argsLength * sizeof(char) - 4);
 
@@ -201,7 +242,7 @@ uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...)
     insertWait(pcb);
 
     // 切回原用户
-    switchUser(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+    switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
     return pid;
 }
 
@@ -229,7 +270,7 @@ void destroyPCB(PCB *pcb)
         // 释放页目录项对应内存
     */
 
-    switchUser(market.virMemPool, &(pcb->u), pcb->pagePAddr, pcb->pageVAddr);
+    switchUserPage(market.virMemPool, &(pcb->u), pcb->pagePAddr, pcb->pageVAddr);
     userPageDir *u = &(pcb->u);
     uint32_t PTPaddr;
     uint32_t temp;
@@ -266,7 +307,7 @@ void destroyPCB(PCB *pcb)
         }
     }
 
-    switchUser(market.virMemPool, &manager.now->u, manager.now->pagePAddr, manager.now->pageVAddr);
+    switchUserPage(market.virMemPool, &manager.now->u, manager.now->pagePAddr, manager.now->pageVAddr);
     // 回收页表内存
     freePage(&market, pcb->pageVAddr);
     // 回收esp0内存
@@ -286,34 +327,60 @@ void switch_to_user_mode()
 {
     // 找到一个可运行的进程,切换到对应进程==>切换到3特权级
     manager.now = theNextProcess();
-    switchUser(market.virMemPool, &manager.now->u, manager.now->pagePAddr, manager.now->pageVAddr);
+    switchUserPage(market.virMemPool, &manager.now->u, manager.now->pagePAddr, manager.now->pageVAddr);
     update_tss_esp(Tss, manager.now->esp0);
-    asm volatile(
-        "movl %0, %%eax\n "
-        "movl %%eax, %%esp\n "
-        :
-        : "r"(manager.now->esp0) // 输入操作数：myVar表示源操作数
-    );
-    __asm__("xchg %%bx,%%bx" ::);
-    asm volatile(
-        "jmp intr_exit\n" // 将myVar的值赋给eax寄存器
-    );
+    switchProcess();
+}
+
+// init进程在内核态执行,可以做一些需要在内核完成的事情
+// 没有任何进程,也许是都阻塞了,死锁!!
+void initFunction()
+{
+    uint32_t i = 0;
+    while (1)
+    {
+        i++;
+        log("no process , init process is running:%d\n", i);
+        // hlt();
+    }
 }
 void initProcess(TSS *tss, GDT *gdt)
 {
+
     initTss(tss, gdt);
 
     // 初始化调度器
     initSchedule();
 
-    // 初始化init线程,设置pcb,永远不会调用
+    // 初始化init线程,设置pcb
     PCB *initP = (PCB *)INITPCB;
     initP->id = 0;
     manager.task[0] = initP;
     initP->pagePAddr = market.virMemPool->paddr;
     initP->pageVAddr = market.virMemPool->vaddr;
+    initP->esp0 = 0xc0008000 + 4080;
+    char *name = "init";
+    memcpy_(initP->name, name, strlen_(name));
+    initP->blockTag.data = initP;
+    initP->weight = 1;
     memcpy_(&(initP->u), market.virMemPool->userPD, sizeof(userPageDir));
     manager.now = initP;
     manager.init = initP;
     initLinkedList(&(manager.now->children));
+
+    StackInfo *s = initP->esp0 - sizeof(StackInfo);
+    s->EIP = initFunction;
+    s->IVN = 32;
+    s->EFLAGS = (EFLAGS_IOPL_0 | EFLAGS_MBS | EFLAGS_IF_1);
+    s->CS = 0b1000;
+    s->oldSS = 0;
+    s->oldESP = 0;
+    s->GS = 0b10000;
+    s->FS = 0b10000;
+    s->ES = 0b10000;
+    s->DS = 0b10000;
+
+    // 初始化一个信号量 todo : 测试使用,可以删除
+    initSem(1, &seId);
+    //
 }

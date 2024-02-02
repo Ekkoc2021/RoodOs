@@ -8,32 +8,13 @@ extern processManager manager;             // 进程管理器
 uint32_t i = 0;                            // 测试,可以删除
 extern void intr_exit();
 extern void schedule();
-extern void yeid();
+
 extern void intr_keyboard_handler();
-void sys_call(StackInfo *s)
-{
-    switch (s->EAX)
-    {
-    case 1: // 输出中断
-        log_qemu_printf(s->EBX);
-        break;
-        // case 10: // 创建进程
-        //     log_qemu_printf(s->EBX);
-        // break;
-    case 11: // yeild,主动让出cpu
-        yeid();
-        asm volatile(
-            "movl %0, %%eax\n "
-            "movl %%eax, %%esp\n "
-            "jmp intr_exit\n"
-            :
-            : "r"(manager.now->esp0) // 输入操作数：myVar表示源操作数
-        );
-        break;
-    default:
-        break;
-    }
-}
+extern void sys_call();
+extern void initSemaphoreMoudle();
+// extern int32_t getAvailableSem();
+// extern void setSem(uint32_t pid, uint16_t __value, uint16_t id);
+
 void interruptHandler(uint32_t IVN, ...)
 {
     if (IVN == 0x27 || IVN == 0x2f)
@@ -56,14 +37,7 @@ void interruptHandler(uint32_t IVN, ...)
         // 时钟中断,发生切换
         // __asm__("xchg %%bx,%%bx" ::);
         schedule();
-        // 切换栈
-        asm volatile(
-            "movl %0, %%eax\n "
-            "movl %%eax, %%esp\n "
-            "jmp intr_exit\n"
-            :
-            : "r"(manager.now->esp0) // 输入操作数：myVar表示源操作数
-        );
+
         // __asm__("xchg %%bx,%%bx" ::);
         break;
     case 0x21:
@@ -78,8 +52,6 @@ void interruptHandler(uint32_t IVN, ...)
         log("---%d:-----%s------------\n", IVN, intr_name[IVN]);
         break;
     }
-
-    i++;
 }
 
 void initIntr_name()
@@ -159,7 +131,7 @@ InterruptDescriptor *interruptInit()
     timer_init();
 
     // 开启时钟中断
-    // startTimerInterrupt();
+    startTimerInterrupt();
 
     // 开启键盘中断
     startKeyboardInterrupt();

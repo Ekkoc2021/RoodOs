@@ -30,10 +30,20 @@ PCB *theNextProcess()
     RBNode *best = delete_min(wait);
     if (best == wait->Nil)
     {
-        return NULL;
+        return manager.init;
     }
-
     return best->data;
+}
+
+uint32_t minVruntime()
+{
+    RBNode *min = getMinimum(wait);
+    if (min == wait->Nil)
+    {
+        return 0;
+    }
+    PCB *pmin = (PCB *)(min->data);
+    return pmin->vruntime;
 }
 
 void removeProcess(PCB *pcb)
@@ -46,7 +56,18 @@ void insertWait(PCB *pcb)
     pcb->node.data = pcb;
     insertRBT(wait, &(pcb->node));
 }
+void switchProcess()
+{
 
+    // 切换栈
+    asm volatile(
+        "movl %0, %%eax\n "
+        "movl %%eax, %%esp\n "
+        "jmp intr_exit\n"
+        :
+        : "r"((manager.now->esp0) - sizeof(StackInfo)) // 输入操作数：myVar表示源操作数
+    );
+}
 // 至少有一个活跃的进程,不考虑没有进程的情况
 void schedule()
 {
@@ -54,29 +75,24 @@ void schedule()
     PCB *p = manager.now;
     p->runtime++;
     // 判断是否要切换
-    if (p->runtime < p->weight)
+    if (p->runtime <= p->weight)
     {
         return;
     }
     p->vruntime++;
     p->runtime = 0;
+    p->status = WAIT;
+
+    insertWait(p);
     // 找到下一个进程
     manager.now = theNextProcess();
-    if (manager.now == NULL)
-    {
-        manager.now = p;
-        return;
-    }
-
     manager.now->status = RUNNING;
-    p->status = WAIT;
-    insertWait(p);
-
     // 修改tss 0特权级栈
     update_tss_esp(Tss, manager.now->esp0);
-
     // 切换页表
-    switchUser(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+    switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+
+    switchProcess();
 }
 
 // 当前正在运行的进程主动让出cpu
@@ -85,23 +101,9 @@ void yeid()
     PCB *p = manager.now;
     p->vruntime++;
     p->runtime = 0;
-    // 找到下一个进程
-    manager.now = theNextProcess();
-    if (manager.now == NULL)
-    {
-        manager.now = p;
-        return;
-    }
-
-    manager.now->status = RUNNING;
     p->status = WAIT;
-    insertWait(p);
-
-    // 修改tss 0特权级栈
-    update_tss_esp(Tss, manager.now->esp0);
-
-    // 切换页表
-    switchUser(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+    // 找到下一个进程
+    switchProcess();
 }
 
 void initSchedule()

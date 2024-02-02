@@ -34,7 +34,7 @@ void switch_page_dir(uint32_t paddr)
 // upd 用户的pagedir对象
 // vaddr 用户页目录的虚拟地址
 // paddr 用户页目录的物理地址
-void switchUser(virtualMemPool *pd, userPageDir *upd, uint32_t paddr, uint32_t vaddr)
+void switchUserPage(virtualMemPool *pd, userPageDir *upd, uint32_t paddr, uint32_t vaddr)
 {
     // 修改全局pd对象
     pd->vaddr = vaddr;

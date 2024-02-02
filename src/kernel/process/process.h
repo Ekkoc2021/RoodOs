@@ -5,7 +5,7 @@
 #include "../include/global.h"
 #include "../include/RBTree.h"
 #include "../include/linkedList.h"
-
+#include "../include/linkedQueue.h"
 #define TASKSIZE 256 // 最多支持256个任务
 
 typedef enum
@@ -35,7 +35,8 @@ typedef struct
     userPageDir u;       // 多大?至少3000B
     // 父亲进程:当pre为NULL且
     linkedList children;
-    listNode tag;
+    listNode tag;       // 孩子节点链表节点标签
+    queueNode blockTag; // 阻塞队列链表节点标签
     RBNode node;
 } PCB;
 

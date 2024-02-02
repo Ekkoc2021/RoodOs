@@ -90,18 +90,26 @@ $(OUTPUT)RBTree.o : $(DATAS)/tree/ST/RBTree.c
 
 $(OUTPUT)linkedList.o : $(DATAS)/list/linkedList.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)linkedQueue.o : $(DATAS)/stack_queue/linkedQueue.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG)
 #------------kernel-----------------
 
 kernelDep=$(OUTPUT)kernel.o $(OUTPUT)roodos.o \
-	$(OUTPUT)arrayList.o $(OUTPUT)Bitmap.o $(OUTPUT)str.o $(OUTPUT)RBTree.o $(OUTPUT)linkedList.o\
+	$(OUTPUT)arrayList.o $(OUTPUT)Bitmap.o $(OUTPUT)str.o $(OUTPUT)RBTree.o $(OUTPUT)linkedList.o $(OUTPUT)linkedQueue.o\
 	$(OUTPUT)assert.o \
 	$(OUTPUT)tss.o $(OUTPUT)process.o $(OUTPUT)schedule.o  \
 	$(OUTPUT)timer.o $(OUTPUT)pic.o $(OUTPUT)interrupt.o $(OUTPUT)IET.o $(OUTPUT)keyboard.o\
+	$(OUTPUT)syscall.o \
 	$(OUTPUT)physicalMem.o $(OUTPUT)virtualMem.o $(OUTPUT)memory.o \
+	$(OUTPUT)semaphore.o \
 	$(OUTPUT)kernel0.o \
 	$(OUTPUT)io.o
 
 $(OUTPUT)roodos.o : $(KERNEL)/roodos.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)semaphore.o : $(KERNEL)/syn/semaphore.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
 $(OUTPUT)schedule.o : $(KERNEL)/process/schedule.c
@@ -121,6 +129,9 @@ $(OUTPUT)IET.o : $(KERNEL)/interrupt/IET.asm
 
 $(OUTPUT)pic.o : $(KERNEL)/interrupt/pic.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)syscall.o : $(KERNEL)/interrupt/syscall.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG)
 
 $(OUTPUT)keyboard.o : $(KERNEL)/device/keyboard.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 

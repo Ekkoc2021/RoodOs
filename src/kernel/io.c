@@ -4,43 +4,6 @@
 
 #define COM1_PORT 0x3F8
 
-//----------------------这几个中断的函数怎么放这里啊!!!------------ todo 修改
-void disable_ir()
-{
-    asm volatile("cli");
-}
-
-uint32_t areInterruptsEnable()
-{
-    uint32_t flags;
-    asm volatile("pushf; pop %0" : "=g"(flags));
-    return flags & (1 << 9);
-}
-// 可能会存在,嵌套函数频繁开关中断,enable_irq应该要考虑原中断状态
-void enable_ir()
-{
-    //
-    asm volatile("sti");
-}
-// 确保中断关闭,如果关闭这返回1,否则关闭中断且返回0
-char BeSureDisable_ir()
-{
-    if (areInterruptsEnable())
-    {
-        disable_ir();
-        return 0;
-    }
-    return 1;
-}
-void Resume_ir(char status)
-{
-    if (status == 0)
-    {
-        enable_ir();
-    }
-}
-//----------------------这几个中断的函数怎么放这里啊!!!------------ todo 修改
-
 // 配置qemu输出到串口,同时定位到终端,方便查看日志
 void log_init(void)
 {
@@ -80,7 +43,7 @@ void log_qemu_putchar(char out)
 void log_qemu_printf(const char *format, ...)
 {
     // 逐个参数往str中拷贝
-    char s = BeSureDisable_ir();
+    char s = BeSureDisable_irq();
     va_list args;           // 定义参数
     va_start(args, format); // 初始化
     char buff[64];          // 缓冲区 数值转字符串缓冲区
@@ -145,13 +108,13 @@ void log_qemu_printf(const char *format, ...)
         i++;
     }
     va_end(args);
-    Resume_ir(s);
+    Resume_irq(s);
 }
 
 void printf(const char *format, ...)
 {
     // 逐个参数往str中拷贝
-    char s = BeSureDisable_ir();
+    char s = BeSureDisable_irq();
     va_list args;           // 定义参数
     va_start(args, format); // 初始化
     char buff[64];          // 缓冲区 数值转字符串缓冲区
@@ -216,7 +179,7 @@ void printf(const char *format, ...)
         i++;
     }
     va_end(args);
-    Resume_ir(s);
+    Resume_irq(s);
 }
 
 // 打印int类型

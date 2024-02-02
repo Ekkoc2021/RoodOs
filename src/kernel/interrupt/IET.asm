@@ -50,7 +50,7 @@ intr_exit:
    pop es
    pop ds
    add esp, 4		   ; 跳过error_code
-   iret
+   iretd
 
 VECTOR 0x00,ZERO
 VECTOR 0x01,ZERO

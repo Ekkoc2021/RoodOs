@@ -10,6 +10,9 @@ void print(char *message); // 打印字符串
 extern void getCursorIndex(); // 光标位置放在bx中,返回
 extern void setCursor();      // bx中存放要设置的光标位置
 extern void readDisk();
+extern uint32_t areInterruptsEnable();
+extern char BeSureDisable_ir();
+extern void Resume_ir(char status);
 
 char readDis(void *dest, unsigned int sectionSize, unsigned int startSection);
 // 二次封装获取光标位置和设置光标位置的函数
