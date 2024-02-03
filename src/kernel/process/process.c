@@ -29,7 +29,6 @@ extern void semWait(int32_t semId);
 extern void semSignal(int32_t semId);
 
 extern TSS *Tss;
-extern sem_t sems[SEMSIZE];
 
 // 将当前进程放入对应的阻塞队列
 void blockProcess(linkedQueue *blockQueue)
@@ -184,7 +183,6 @@ void function()
                 : "%eax", "%ebx");
             ticket--;
         }
-
         asm volatile(
             "movl $53, %%eax\n"
             "movl %0, %%ebx\n"
