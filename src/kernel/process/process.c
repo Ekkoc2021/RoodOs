@@ -29,6 +29,7 @@ extern void semWait(int32_t semId);
 extern void semSignal(int32_t semId);
 
 extern TSS *Tss;
+extern sem_t sems[SEMSIZE];
 
 // 将当前进程放入对应的阻塞队列
 void blockProcess(linkedQueue *blockQueue)
@@ -151,10 +152,8 @@ void initStack(StackInfo *s, uint32_t eip, uint32_t esp3)
     s->DS = 0b100011;
 }
 // 反正也是在内核空间测试进程调度
-int32_t ticket = 10;
-uint32_t seId = -1;
-uint32_t test = 0;
-
+int32_t ticket = 100;
+uint32_t seId = -1; // 初始化进程的设置好了
 void function()
 {
     char buff[128];
@@ -170,6 +169,9 @@ void function()
             :
             : "r"(seId)
             : "%eax", "%ebx");
+        // 信号量失效原因:进入阻塞后下次中断回来直接跳到下一条指令了,没有再重新执行semWait,这是不应该的!
+        // 解决方案一:wait后发生阻塞将eip的值修改为上一条指令:执行中断这条命令
+        // 解决方案二:简单包装一下内核态的semWait命令,加一个循环
         if (ticket > 0)
         {
             sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d   ticket = %d\n", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1, ticket);
@@ -182,6 +184,7 @@ void function()
                 : "%eax", "%ebx");
             ticket--;
         }
+
         asm volatile(
             "movl $53, %%eax\n"
             "movl %0, %%ebx\n"

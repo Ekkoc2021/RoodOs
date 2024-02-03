@@ -13,7 +13,14 @@ typedef char bool;
 #define true 1
 #define NULL 0x0
 
-//------------------
-typedef uint32_t u32;
-typedef uint16_t u16;
+#include "linkedQueue.h"
+#define SEMSIZE 1024
+typedef struct
+{
+    bool _pshared;
+    uint16_t pid;
+    uint16_t value;
+    linkedQueue block;
+} sem_t;
+
 #endif

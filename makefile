@@ -1,13 +1,13 @@
 LINUXBOCHSRC=make/bochsconfig/bochsrc_gdb.bxrc
 # LINUXBOCHSRC=make/bochsconfig/bochsrc_vmlinux.bxrc
-LINUXMASTERDISK=make/bochsconfig/master.img
+LINUXMASTERDISK=make/bochsconfig/master.vhd
 LINUXBOCHS=bochs-gdb/bin/bochs
 # /mnt/e/workspace/vscode_workspace/RoodOs/
 WINDOWSGCC=x86_64-elf-gcc
 WINDOWSLD=x86_64-elf-ld
 WINDOWSBOCHSRC=make/bochsconfig/bochsrc.bxrc # windows下bochs配置文件
 WINDOWSBOCHS=bochsdbg
-WINDOWSMASTERDISK=make/bochsconfig/master.img # windows下启动盘
+WINDOWSMASTERDISK=make/bochsconfig/master.vhd # windows下启动盘
 
 
 BUILD=build/

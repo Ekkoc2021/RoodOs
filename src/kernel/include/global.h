@@ -55,6 +55,7 @@ typedef struct
     uint32_t trace;
     uint32_t io_base;
 } TSS;
+
 typedef struct
 {
     uint32_t low;

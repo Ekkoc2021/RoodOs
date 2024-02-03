@@ -64,7 +64,8 @@ void semWait(int32_t semId)
     // 检查资源量
     if (sems[semId].value <= 0)
     {
-        // todo 放入该信号量的等待队列
+        StackInfo *s = (manager.now->esp0) - sizeof(StackInfo);
+        s->EIP = s->EIP - 2; // 回到中断调用的eip位置
         blockProcess(&(sems[semId].block));
     }
     sems[semId].value--;
