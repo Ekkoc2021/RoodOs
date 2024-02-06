@@ -20,10 +20,8 @@ uint32_t areInterruptsEnabled()
     return flags & (1 << 9);
 }
 
-// 可能会存在,嵌套函数频繁开关中断,enable_irq应该要考虑原中断状态
 void enable_irq()
 {
-    //
     asm volatile("sti");
 }
 

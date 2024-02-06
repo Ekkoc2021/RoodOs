@@ -9,6 +9,7 @@
 void hlt();
 void initIntr_name();
 void disable_irq();
+void enable_irq();
 char BeSureDisable_irq();
 void Resume_irq(char status);
 // 参考 操作系统真象欢迎 io.h

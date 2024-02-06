@@ -11,6 +11,7 @@ typedef struct cirQueue
     AListLenType front; // 头指针位置
     AListLenType tail;  // 尾指针
 } cirQueue;
+
 // 初始化队列
 void initCQueue(cirQueue *q, void *da, eSizeType eSize, AListLenType len);
 

@@ -3,6 +3,7 @@
 #include "str.h"
 #include "types.h"
 #include "roodos.h"
+#define VGALOACTION 0xc00b8000
 void printf(const char *format, ...);
 void print(char *message); // 打印字符串
 // global getCursorIndex

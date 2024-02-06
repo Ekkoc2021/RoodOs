@@ -30,7 +30,7 @@ extern void semSignal(int32_t semId);
 
 extern TSS *Tss;
 
-// 将当前进程放入对应的阻塞队列
+// 将当前进程放入对应的阻塞队列,显然是通过系统调用才会走到这里
 void blockProcess(linkedQueue *blockQueue)
 {
     PCB *p = manager.now;
@@ -42,6 +42,7 @@ void blockProcess(linkedQueue *blockQueue)
     manager.now->status = RUNNING;
     // 修改tss 0特权级栈
     update_tss_esp(Tss, manager.now->esp0);
+
     // 切换页表
     switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
 

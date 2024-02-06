@@ -1,5 +1,3 @@
-#define VGALOACTION 0xc00b8000
-
 #include "include/io.h"
 
 #define COM1_PORT 0x3F8

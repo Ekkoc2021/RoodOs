@@ -58,7 +58,7 @@ bool sem_open(uint32_t semId)
     return sems[semId]._pshared;
 }
 
-// 使用信号量
+// 使用信号量,走系统调用
 void semWait(int32_t semId)
 {
     // 检查资源量
@@ -71,8 +71,18 @@ void semWait(int32_t semId)
     sems[semId].value--;
 }
 
-// 归还资源
+// 给内核用的,没有通过系统调用进来,给内核用的semWait接口
+void sys_semWait(int32_t semId)
+{
+    // 检查资源量
+    while (sems[semId].value <= 0)
+    {
+    }
+    disable_irq();
+    sems[semId].value--;
+}
 
+// 归还资源
 void semSignal(int32_t semId)
 {
     sems[semId].value++;

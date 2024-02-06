@@ -45,12 +45,12 @@ int main(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePh
     // destroyPCB(manager.task[6]);
     // destroyPCB(manager.task[7]);
     // destroyPCB(manager.task[9]);
-    char *name = "shell1";
-    createProcess(0, strlen_(name), name);
-    char *name2 = "shell2";
-    createProcess(0, strlen_(name2), name2);
-    char *name3 = "shell3";
-    createProcess(0, strlen_(name3), name3);
+    // char *name = "shell1";
+    // createProcess(0, strlen_(name), name);
+    // char *name2 = "shell2";
+    // createProcess(0, strlen_(name2), name2);
+    // char *name3 = "shell3";
+    // createProcess(0, strlen_(name3), name3);
     switch_to_user_mode();
 }
 void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePhAddr)
