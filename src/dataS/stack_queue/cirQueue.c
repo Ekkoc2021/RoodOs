@@ -51,7 +51,7 @@ int main(int argc, char const *argv[])
     char t;
     cirFront(c, &f);
     cirRear(c, &t);
-    printf("\n头:%d,值%d,尾:%d,值%d,长度:%d\n", c1.front,f , c1.tail,t, c1.size);
+    printf("\n头:%d,值%d,尾:%d,值%d,长度:%d\n", c1.front, f, c1.tail, t, c1.size);
 
     // 入队2个查看位置
     temp = 100;
@@ -145,7 +145,7 @@ char cirEnqueue(cirQueue *queue, void *elem)
 }
 
 // 出队操作
-char cirDequeue(cirQueue *queue, void *elem)
+char cirDequeue(cirQueue *queue, void **elem)
 {
     if (cirIsEmpty(queue))
     {

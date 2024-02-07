@@ -25,17 +25,16 @@ void registerDev(device *dev)
     // 找到空位置
     for (uint32_t i = 0; i < DEVSIZE; i++)
     {
-        if (emptyIndex != DEVSIZE + 1 && all_dev->type != NULL)
+        if (emptyIndex == DEVSIZE + 1 && all_dev[i].type == NULL)
         {
             emptyIndex = i;
         }
 
-        if (all_dev->type->typeId != NULL && all_dev->type == dev->type->typeId)
+        if (all_dev[i].type != NULL && all_dev[i].type->typeId == dev->type->typeId)
         {
             deviceId++;
         }
     }
-
     if (emptyIndex != DEVSIZE + 1)
     {
         memcpy_(all_dev + emptyIndex, dev, sizeof(device));
@@ -66,7 +65,7 @@ int32_t read(uint32_t typeId, uint32_t deviceId, uint32_t addr, char *buf, uint3
         if (all_dev[i].type->typeId == typeId && all_dev[i].deviceId == deviceId)
         {
 
-            return all_dev[i].type->write(&(all_dev[i]), addr, buf, size);
+            return all_dev[i].type->read(&(all_dev[i]), addr, buf, size);
         }
     }
     return -1;
@@ -115,10 +114,19 @@ void close(uint32_t typeId, uint32_t deviceId)
 
 void sysDevInit()
 {
-    log("device module init..");
+    log("device module init..\n");
     deviceModuleInit();
-    log("device module init done!");
-    log("tty dev init..");
+    log("device module init done!\n");
+    log("tty dev init..\n");
     initTTY();
-    log("tty dev init done!");
+    log("tty dev init done!\n");
+
+    // 测试 TTY设备
+    // open(TTY, 0);
+    // char *test = "hello tty!\n";
+    // write(TTY, 0, test, test, strlen_(test));
+    // enable_irq();
+    // char buff[128];
+    // read(TTY, 0, buff, buff, 3);
+    // close(TTY, 0);
 }

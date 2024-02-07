@@ -46,6 +46,7 @@ typedef struct
     PCB *init;   //
     RBTree wait; // 等待中的队列
     uint32_t task[TASKSIZE];
+    uint32_t minVruntime;
 } processManager;
 void initProcess(TSS *tss, GDT *gdt);
 void schedule();

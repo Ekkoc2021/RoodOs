@@ -19,7 +19,7 @@ void initCQueue(cirQueue *q, void *da, eSizeType eSize, AListLenType len);
 char cirEnqueue(cirQueue *queue, void *elem);
 
 // 出队操作
-char cirDequeue(cirQueue *queue, void *elem);
+char cirDequeue(cirQueue *queue, void **elem);
 
 // 查看队头元素,返回队头元素的data域,请确保队列长度不为空!
 char cirFront(cirQueue *queue, void *elem);

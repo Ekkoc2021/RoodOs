@@ -2,14 +2,13 @@
 extern void blockProcess(linkedQueue *blockQueue);
 extern void insertWait(PCB *pcb);
 extern processManager manager;
-extern uint32_t minVruntime();
 sem_t sems[SEMSIZE];
 
 void initSemaphoreMoudle()
 {
     for (uint16_t i = 0; i < SEMSIZE; i++)
     {
-        sems[i].pid = 0;
+        sems[i].pcb = 0;
         initQueue(&(sems[i].block));
     }
 }
@@ -19,7 +18,7 @@ int32_t getAvailableSem()
 {
     for (uint16_t i = 0; i < SEMSIZE; i++)
     {
-        if (sems[i].pid == 0)
+        if (sems[i].pcb == 0)
         {
             return i;
         }
@@ -28,9 +27,9 @@ int32_t getAvailableSem()
 }
 
 // 通过信号量id,设置信号量
-void setSem(uint32_t pid, uint16_t __value, uint16_t id)
+void setSem(uint32_t pcb, uint16_t __value, uint16_t id)
 {
-    sems[id].pid = pid;
+    sems[id].pcb = pcb;
     sems[id].value = __value;
 }
 
@@ -44,7 +43,7 @@ void initSem(uint16_t __value, int32_t *semId)
         return;
     }
 
-    setSem(manager.now->id, __value, id);
+    setSem(manager.now, __value, id);
     *semId = id;
 }
 // 打开一个信号量
@@ -77,6 +76,9 @@ void sys_semWait(int32_t semId)
     // 检查资源量
     while (sems[semId].value <= 0)
     {
+        // 放开中断
+        manager.now->runtime = manager.now->weight - 1;
+        enable_irq();
     }
     disable_irq();
     sems[semId].value--;
@@ -92,7 +94,8 @@ void semSignal(int32_t semId)
     {
         // 放入等待队列
         PCB *p = node->data;
-        p->vruntime = minVruntime() - 1;
+        p->vruntime = manager.minVruntime - 1;
+        p->runtime = p->weight - 1;
         insertWait(node->data);
     }
 }

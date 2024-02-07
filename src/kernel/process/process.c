@@ -28,6 +28,7 @@ extern bool sem_open(uint32_t semId);
 extern void semWait(int32_t semId);
 extern void semSignal(int32_t semId);
 
+extern void switchUserPage(virtualMemPool *pd, userPageDir *upd, uint32_t paddr, uint32_t vaddr);
 extern TSS *Tss;
 
 // 将当前进程放入对应的阻塞队列,显然是通过系统调用才会走到这里
@@ -154,43 +155,83 @@ void initStack(StackInfo *s, uint32_t eip, uint32_t esp3)
 // 反正也是在内核空间测试进程调度
 int32_t ticket = 100;
 uint32_t seId = -1; // 初始化进程的设置好了
+
+// 测试设备管理系统调用
+typedef struct
+{
+    char *buf;
+    uint32_t typeId;
+    uint32_t deviceId;
+    uint32_t addr;
+    uint32_t size;
+} devParam_;
+
 void function()
 {
     char buff[128];
+    devParam_ d;
+    d.typeId = 1;
+    d.deviceId = 0;
+    d.buf = buff;
+    d.size = 128;
+    asm volatile(
+        "movl $60, %%eax\n"
+        "movl %0, %%ebx\n"
+        "int $0x30\n"
+        :
+        : "r"(&d)
+        : "%eax", "%ebx");
 
     while (1)
     {
         // if内代码属于临界资源,不允许两个进程同时访问
         // 也就是说保证两个进程输出的ticket编号永远不能一致
-        asm volatile(
-            "movl $52, %%eax\n"
-            "movl %0, %%ebx\n"
-            "int $0x30\n"
-            :
-            : "r"(seId)
-            : "%eax", "%ebx");
+        // asm volatile(
+        //     "movl $52, %%eax\n"
+        //     "movl %0, %%ebx\n"
+        //     "int $0x30\n"
+        //     :
+        //     : "r"(seId)
+        //     : "%eax", "%ebx");
         // 信号量失效原因:进入阻塞后下次中断回来直接跳到下一条指令了,没有再重新执行semWait,这是不应该的!
         // 解决方案一:wait后发生阻塞将eip的值修改为上一条指令:执行中断这条命令
         // 解决方案二:简单包装一下内核态的semWait命令,加一个循环
-        if (ticket > 0)
+
+        if (manager.now->id != 1)
         {
-            sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d   ticket = %d\n", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1, ticket);
+
+            sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d   ticket = %d:", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1, ticket);
+            uint32_t len = strlen_(buff);
+            d.buf = buff + len;
+            d.size = 1;
             asm volatile(
-                "movl $1, %%eax\n"
+                "movl $61, %%eax\n"
                 "movl %0, %%ebx\n"
                 "int $0x30\n"
                 :
-                : "r"(buff)
+                : "r"(&d)
+                : "%eax", "%ebx");
+            buff[len + 1] = '\n';
+            buff[len + 2] = '\0';
+            d.buf = buff;
+            asm volatile(
+                "movl $62, %%eax\n"
+                "movl %0, %%ebx\n"
+                "int $0x30\n"
+                :
+                : "r"(&d)
                 : "%eax", "%ebx");
             ticket--;
+
+            // asm volatile(
+            //     "movl $53, %%eax\n"
+            //     "movl %0, %%ebx\n"
+            //     "int $0x30\n"
+            //     :
+            //     : "r"(seId)
+            //     : "%eax", "%ebx");
+            /* code */
         }
-        asm volatile(
-            "movl $53, %%eax\n"
-            "movl %0, %%ebx\n"
-            "int $0x30\n"
-            :
-            : "r"(seId)
-            : "%eax", "%ebx");
     }
 }
 

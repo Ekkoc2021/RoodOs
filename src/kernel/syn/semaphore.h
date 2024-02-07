@@ -7,8 +7,8 @@
 typedef struct
 {
     bool _pshared;
-    uint16_t pid;
     uint16_t value;
+    uint32_t pcb;
     linkedQueue block;
 } sem_t;
 #endif

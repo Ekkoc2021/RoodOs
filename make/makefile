@@ -93,20 +93,35 @@ $(OUTPUT)linkedList.o : $(DATAS)/list/linkedList.c
 
 $(OUTPUT)linkedQueue.o : $(DATAS)/stack_queue/linkedQueue.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG)
+
+$(OUTPUT)cirQueue.o : $(DATAS)/stack_queue/cirQueue.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG)
+
 #------------kernel-----------------
 
 kernelDep=$(OUTPUT)kernel.o $(OUTPUT)roodos.o \
-	$(OUTPUT)arrayList.o $(OUTPUT)Bitmap.o $(OUTPUT)str.o $(OUTPUT)RBTree.o $(OUTPUT)linkedList.o $(OUTPUT)linkedQueue.o\
+	$(OUTPUT)arrayList.o $(OUTPUT)Bitmap.o $(OUTPUT)str.o $(OUTPUT)RBTree.o $(OUTPUT)linkedList.o $(OUTPUT)linkedQueue.o $(OUTPUT)cirQueue.o \
 	$(OUTPUT)assert.o \
 	$(OUTPUT)tss.o $(OUTPUT)process.o $(OUTPUT)schedule.o  \
-	$(OUTPUT)timer.o $(OUTPUT)pic.o $(OUTPUT)interrupt.o $(OUTPUT)IET.o $(OUTPUT)keyboard.o\
+	$(OUTPUT)timer.o $(OUTPUT)pic.o $(OUTPUT)interrupt.o $(OUTPUT)IET.o \
 	$(OUTPUT)syscall.o \
 	$(OUTPUT)physicalMem.o $(OUTPUT)virtualMem.o $(OUTPUT)memory.o \
 	$(OUTPUT)semaphore.o \
+	$(OUTPUT)console.o $(OUTPUT)keyboard.o $(OUTPUT)device.o $(OUTPUT)tty.o \
 	$(OUTPUT)kernel0.o \
 	$(OUTPUT)io.o
 
 $(OUTPUT)roodos.o : $(KERNEL)/roodos.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)console.o : $(KERNEL)/device/console.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+
+$(OUTPUT)device.o : $(KERNEL)/device/device.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)tty.o : $(KERNEL)/device/tty.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
 $(OUTPUT)semaphore.o : $(KERNEL)/syn/semaphore.c

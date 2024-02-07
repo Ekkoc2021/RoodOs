@@ -8,6 +8,15 @@ extern void semSignal(int32_t semId);
 
 extern void yeid();
 
+typedef struct
+{
+    char *buf;
+    uint32_t typeId;
+    uint32_t deviceId;
+    uint32_t addr;
+    uint32_t size;
+} devParam;
+
 extern uint32_t open(uint32_t typeId, uint32_t deviceId);
 extern int32_t read(uint32_t typeId, uint32_t deviceId, uint32_t addr, char *buf, uint32_t size);
 extern int32_t write(uint32_t typeId, uint32_t deviceId, uint32_t addr, char *buf, uint32_t size);
@@ -38,12 +47,34 @@ void sys_call(StackInfo *s)
         break;
     case 52:
         // ebx==>semId
-        s->EIP = s->EIP - 2; // 回到中断调用的eip位置
         semWait(s->EBX);
         break;
     case 53:
         // ebx==>semId
         semSignal(s->EBX);
+        break;
+    case 60: // 设备管理相关系统调用
+             // ebx==>devParam
+             // ecx==>返回参数地址
+        *(uint32_t *)(s->ECX) = open(((devParam *)(s->EBX))->typeId, ((devParam *)(s->EBX))->deviceId);
+        break;
+    case 61:
+        // ebx==>devParam
+        // ecx==>返回参数地址
+        *(uint32_t *)(s->ECX) = read(((devParam *)(s->EBX))->typeId, ((devParam *)(s->EBX))->deviceId, ((devParam *)(s->EBX))->addr, ((devParam *)(s->EBX))->buf, ((devParam *)(s->EBX))->size);
+        break;
+    case 62:
+        // ebx==>devParam
+        // ecx==>返回参数地址
+        *(uint32_t *)(s->ECX) = write(((devParam *)(s->EBX))->typeId, ((devParam *)(s->EBX))->deviceId, ((devParam *)(s->EBX))->addr, ((devParam *)(s->EBX))->buf, ((devParam *)(s->EBX))->size);
+        break;
+    case 63:
+        // *(uint32_t *)(s->ECX) = write(devPar->typeId, devPar->deviceId, devPar->addr, devPar->buf, devPar->size);
+        break;
+    case 64:
+        // ebx==>devParam
+        // ecx==>返回参数地址
+        close(((devParam *)(s->EBX))->typeId, ((devParam *)(s->EBX))->deviceId);
         break;
     default:
         break;

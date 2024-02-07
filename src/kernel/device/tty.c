@@ -13,10 +13,7 @@ extern void console_putchar(char p);
 extern void console_puts(char *message);
 extern processManager manager;
 
-dev_type tty_type;
-device tty_dev;
-
-cirQueue outBuff; // 输出缓冲区
+cirQueue outBuff; // 输出缓冲区,用不上,但也留着
 char outbuff[TTYBUFFLEN];
 
 cirQueue inBuff; // 输入缓冲区,读取缓冲区
@@ -46,12 +43,14 @@ int32_t read_tty(device *dev, uint32_t addr, char *buf, uint32_t size)
         now = manager.now;    // 能够成功拿到资源
     }
 
-    char temp;
+    char *temp;
     for (uint32_t i = readIndex; i < size; i++)
     {
+
         semWait(readSemId_kb); // 申请资源
         cirDequeue(&inBuff, &temp);
-        buf[i] = temp;
+        readIndex++;
+        buf[i] = *temp;
     }
     readIndex = 0;          // 重置readIndex
     now = NULL;             // 重置now
@@ -63,13 +62,40 @@ int32_t write_tty(device *dev, uint32_t addr, char *buf, uint32_t size)
     // 就比较简单了,直接调用console中写数据往显示台写数据即可
     console_puts(buf); // 就不过缓冲区了,感觉脱裤子放屁
 }
-uint32_t control_tty(device *dev, uint32_t cmd, int32_t *args, uint32_t n);
-void close_tty(device *dev);
+
+uint32_t control_tty(device *dev, uint32_t cmd, int32_t *args, uint32_t n)
+{
+    return 1;
+}
+
+void close_tty(device *dev)
+{
+    dev->open--;
+}
+
+void dataToInbuff(char data)
+{
+    if (cirEnqueue(&inBuff, &data))
+    {
+        semSignal(readSemId_kb);
+    }
+}
+
+dev_type tty_type = {
+    .open = open_tty,
+    .read = read_tty,
+    .write = write_tty,
+    .close = close_tty,
+    .control = control_tty,
+    .typeId = TTY,
+};
+
+device tty_dev;
 
 void initTTY()
 {
-    initCQueue(&outBuff, outbuff, sizeof(char), 512); // 输出缓冲区
-    initCQueue(&inBuff, inbuff, sizeof(char), 512);   // 输入缓冲区
+    initCQueue(&outBuff, outbuff, sizeof(char), TTYBUFFLEN); // 输出缓冲区
+    initCQueue(&inBuff, inbuff, sizeof(char), TTYBUFFLEN);   // 输入缓冲区
 
     // 初始化用户之间读信号量
     initSem(1, &readSemId_p);
@@ -79,5 +105,12 @@ void initTTY()
     initSem(0, &readSemId_kb); // 0 个 最大值与缓冲区大小一致
     ASSERT(readSemId_kb > 0);
 
+    now = NULL;
+
+    char *name = "teletypewriters";
+    memcpy_(tty_type.name, name, strlen_(name));
     tty_dev.type = &tty_type;
+
+    registerDev(&tty_dev);
+    ASSERT(tty_dev.deviceId != DEVNAMESIZE + 1);
 }

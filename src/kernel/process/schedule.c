@@ -35,17 +35,6 @@ PCB *theNextProcess()
     return best->data;
 }
 
-uint32_t minVruntime()
-{
-    RBNode *min = getMinimum(wait);
-    if (min == wait->Nil)
-    {
-        return 0;
-    }
-    PCB *pmin = (PCB *)(min->data);
-    return pmin->vruntime;
-}
-
 void removeProcess(PCB *pcb)
 {
     RBNode *n = deleteNodeRBT(wait, &(pcb->node));
@@ -87,6 +76,7 @@ void schedule()
     insertWait(p);
     // 找到下一个进程
     manager.now = theNextProcess();
+    manager.minVruntime = manager.now->vruntime;
     manager.now->status = RUNNING;
     // 修改tss 0特权级栈
     update_tss_esp(Tss, manager.now->esp0);

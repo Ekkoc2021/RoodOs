@@ -1,6 +1,7 @@
 #include "../include/types.h"
 #include "../include/roodos.h"
 
+extern void dataToInbuff(char data);
 // 摘抄自《操作系统真相还原》
 /* 键盘中断处理程序 */
 #define KBD_BUF_PORT 0x60
@@ -35,7 +36,8 @@
 
 /* 定义以下变量记录相应键是否按下的状态,
  * ext_scancode用于记录makecode是否以0xe0开头 */
-static bool ctrl_status, shift_status, alt_status, caps_lock_status, ext_scancode;
+static bool ctrl_status,
+    shift_status, alt_status, caps_lock_status, ext_scancode;
 
 /* 以通码make_code为索引的二维数组 */
 static char keymap[][2] = {
@@ -205,7 +207,7 @@ void intr_keyboard_handler()
         /* 只处理ascii码不为0的键 */
         if (cur_char)
         {
-            putchar(cur_char);
+            dataToInbuff(cur_char);
             return;
         }
 
