@@ -197,7 +197,7 @@ void function()
         // 解决方案一:wait后发生阻塞将eip的值修改为上一条指令:执行中断这条命令
         // 解决方案二:简单包装一下内核态的semWait命令,加一个循环
 
-        if (manager.now->id != 1)
+        if (manager.now->id == 1 || manager.now->id == 2)
         {
 
             sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d   ticket = %d:", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1, ticket);

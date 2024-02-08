@@ -39,13 +39,24 @@ unsigned char readSlaveIMR()
     outb(0xA0, 0x0B);
     return inb(0xA1); // 读取从片 IMR 寄存器的值
 }
+void startIDEInterrupt()
+{
+    log("start init IDE interrupt...\n");
+    unsigned char masterIMR = readMasterIMR();
+    outb(PIC_M_DATA, masterIMR & 0xf8);
+    unsigned char slaveIMR = readSlaveIMR();
+    outb(PIC_S_DATA, slaveIMR & 0xbf);
+    log("start IDE interrupts successful !\n");
+}
+
 void startKeyboardInterrupt()
 {
     log("start init keyboard interrupt...\n");
     unsigned char masterIMR = readMasterIMR();
     outb(PIC_M_DATA, masterIMR & 0xfd);
-    log("keyboard  interrupts successful !\n");
+    log("start keyboard  interrupts successful !\n");
 }
+
 void startTimerInterrupt()
 {
     log("start init clock interrupts...\n");

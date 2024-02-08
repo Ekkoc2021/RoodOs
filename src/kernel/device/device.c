@@ -3,6 +3,7 @@
 
 device all_dev[DEVSIZE];
 extern void initTTY();
+extern void diskInit();
 
 void deviceModuleInit()
 {
@@ -129,4 +130,6 @@ void sysDevInit()
     // char buff[128];
     // read(TTY, 0, buff, buff, 3);
     // close(TTY, 0);
+
+    diskInit();
 }

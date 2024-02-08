@@ -130,11 +130,14 @@ InterruptDescriptor *interruptInit()
     // 初始化时钟中断
     timer_init();
 
-    // 开启时钟中断
+    // 允许时钟中断
     startTimerInterrupt();
 
-    // 开启键盘中断
+    // 允许键盘中断
     startKeyboardInterrupt();
+
+    // 允许硬盘中断:放在磁盘模块去开启,磁盘模块在这个函数之后执行
+    startIDEInterrupt();
 
     return IDT;
 }

@@ -42,7 +42,9 @@ lqemuDebug :
 	-machine pcspk-audiodev=hda \
 	-rtc base=localtime \
 	-serial stdio \
-	$(LINUXMASTERDISK) -m 128M -S -s
+	-drive file=$(LINUXMASTERDISK) \
+	-drive file=make/bochsconfig/c.img,format=raw \
+	 -m 128M -S -s
 
 lqemu :
 	qemu-system-i386 \
@@ -50,7 +52,9 @@ lqemu :
 	-machine pcspk-audiodev=hda \
 	-rtc base=localtime \
 	-serial stdio \
-	$(LINUXMASTERDISK) -m 128M
+	-drive file=$(LINUXMASTERDISK) \
+	-drive file=make/bochsconfig/c.img,format=raw \
+	-m 128M
 
 # linux下清除功能
 lclear:

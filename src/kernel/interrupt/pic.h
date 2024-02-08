@@ -8,4 +8,5 @@
 void initPIC();
 void startTimerInterrupt();
 void startKeyboardInterrupt();
+void startIDEInterrupt();
 #endif

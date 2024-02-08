@@ -10,7 +10,8 @@ struct dev_type;
 typedef enum devType
 {
     UNKNOW,
-    TTY
+    TTY,
+    DISK,
 } devType;
 typedef struct device
 {

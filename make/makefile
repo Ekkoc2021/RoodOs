@@ -47,7 +47,9 @@ DEBUG=-g # gcc调试参数,可以debug
 INCLUDE=-Iinclude # 搜索编译的头文件的目录
 
 
-start : bootloader $(OUTPUT)system.bin sym $(OUTPUT)system.map
+# start : bootloader $(OUTPUT)system.bin sym $(OUTPUT)system.map
+
+start : $(OUTPUT)system.bin sym $(OUTPUT)system.map
 
 kernel: $(OUTPUT)system.bin sym
 
@@ -107,7 +109,7 @@ kernelDep=$(OUTPUT)kernel.o $(OUTPUT)roodos.o \
 	$(OUTPUT)syscall.o \
 	$(OUTPUT)physicalMem.o $(OUTPUT)virtualMem.o $(OUTPUT)memory.o \
 	$(OUTPUT)semaphore.o \
-	$(OUTPUT)console.o $(OUTPUT)keyboard.o $(OUTPUT)device.o $(OUTPUT)tty.o \
+	$(OUTPUT)console.o $(OUTPUT)keyboard.o $(OUTPUT)device.o $(OUTPUT)tty.o $(OUTPUT)disk.o\
 	$(OUTPUT)kernel0.o \
 	$(OUTPUT)io.o
 
@@ -117,6 +119,8 @@ $(OUTPUT)roodos.o : $(KERNEL)/roodos.c
 $(OUTPUT)console.o : $(KERNEL)/device/console.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
+$(OUTPUT)disk.o : $(KERNEL)/device/disk.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
 $(OUTPUT)device.o : $(KERNEL)/device/device.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 

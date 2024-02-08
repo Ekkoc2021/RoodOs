@@ -101,6 +101,6 @@ readDisk:
 .readEnd:
     pop es
     ret
-
-end times 510-($-$$) db 0
-db 0x55,0xaa
+end times 446-($-$$) db 0
+; end times 510-($-$$) db 0
+; db 0x55,0xaa
