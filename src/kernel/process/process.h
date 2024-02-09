@@ -14,6 +14,7 @@ typedef enum
     RUNNING,
     BLOCKED,
     WAIT,
+    SLEEP,
     END
 } status;
 
@@ -38,6 +39,7 @@ typedef struct
     listNode tag;       // 孩子节点链表节点标签
     queueNode blockTag; // 阻塞队列链表节点标签
     RBNode node;
+    bool justWakeUp; // 是否是刚刚重睡眠状态回到运行态
 } PCB;
 
 typedef struct
@@ -47,7 +49,9 @@ typedef struct
     RBTree wait; // 等待中的队列
     uint32_t task[TASKSIZE];
     uint32_t minVruntime;
+    uint32_t ticks; // 共运行了多少个tick
 } processManager;
+
 void initProcess(TSS *tss, GDT *gdt);
 void schedule();
 PCB *createPCB(char *name, uint32_t id, uint16_t weight);

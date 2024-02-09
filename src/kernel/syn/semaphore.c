@@ -2,6 +2,7 @@
 extern void blockProcess(linkedQueue *blockQueue);
 extern void insertWait(PCB *pcb);
 extern processManager manager;
+extern void backInt30();
 sem_t sems[SEMSIZE];
 
 void initSemaphoreMoudle()
@@ -63,8 +64,7 @@ void semWait(int32_t semId)
     // 检查资源量
     if (sems[semId].value <= 0)
     {
-        StackInfo *s = (manager.now->esp0) - sizeof(StackInfo);
-        s->EIP = s->EIP - 2; // 回到中断调用的eip位置
+        backInt30(); // 重新进行系统调用
         blockProcess(&(sems[semId].block));
     }
     sems[semId].value--;
@@ -88,7 +88,6 @@ void sys_semWait(int32_t semId)
 void semSignal(int32_t semId)
 {
     sems[semId].value++;
-    // 唤醒阻塞中的一个进程
     queueNode *node = dequeue(&(sems[semId].block));
     if (node != &(sems[semId].block.head))
     {
@@ -97,5 +96,6 @@ void semSignal(int32_t semId)
         p->vruntime = manager.minVruntime - 1;
         p->runtime = p->weight - 1;
         insertWait(node->data);
+        // 唤醒阻塞中的一个进程
     }
 }

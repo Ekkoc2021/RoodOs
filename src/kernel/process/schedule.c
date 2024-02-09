@@ -61,6 +61,7 @@ void switchProcess()
 // 至少有一个活跃的进程,不考虑没有进程的情况
 void schedule()
 {
+    manager.ticks++;
 
     PCB *p = manager.now;
     p->runtime++;

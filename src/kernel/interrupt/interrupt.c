@@ -12,6 +12,8 @@ extern void schedule();
 extern void intr_keyboard_handler();
 extern void sys_call();
 extern void initSemaphoreMoudle();
+extern void intr_hd_handler(uint8_t irq_no);
+
 // extern int32_t getAvailableSem();
 // extern void setSem(uint32_t pid, uint16_t __value, uint16_t id);
 
@@ -44,10 +46,15 @@ void interruptHandler(uint32_t IVN, ...)
         // 键盘中断
         intr_keyboard_handler();
         break;
+    case 0x2e:
+        intr_hd_handler(0x2e);
+        break;
+
     case 0x30:
         // system_call 系统调用
         sys_call(&IVN);
         break;
+
     default:
         log("---%d:-----%s------------\n", IVN, intr_name[IVN]);
         break;
@@ -137,7 +144,7 @@ InterruptDescriptor *interruptInit()
     startKeyboardInterrupt();
 
     // 允许硬盘中断:放在磁盘模块去开启,磁盘模块在这个函数之后执行
-    startIDEInterrupt();
+    // startIDEInterrupt();
 
     return IDT;
 }

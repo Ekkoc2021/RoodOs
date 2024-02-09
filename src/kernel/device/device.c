@@ -13,7 +13,7 @@ void deviceModuleInit()
     }
 }
 
-// 注册设备,后续设备可以设计成进程
+// 注册设备
 void registerDev(device *dev)
 {
     if (dev->type == NULL)
@@ -41,7 +41,9 @@ void registerDev(device *dev)
         memcpy_(all_dev + emptyIndex, dev, sizeof(device));
         all_dev[emptyIndex].deviceId = deviceId;
         dev->deviceId = deviceId;
+        return;
     }
+    dev->deviceId = DEVSIZE + 1; // 说明失败了
 }
 
 // 打开一个指定类型的设备

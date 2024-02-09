@@ -4,6 +4,8 @@
 #define debug_printf log_qemu_printf
 #include "io.h"
 #include "types.h"
+#define MAX 4294967294
+#define SCHEDULE_FREQUENCY 100 // 1s 的调度次数
 // #include "interrupt.h"
 
 void hlt();

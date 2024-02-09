@@ -34,11 +34,11 @@ int main(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePh
     //-------测试-----
 
     char *name = "shell1";
-    createProcess(0, strlen_(name), name);
+    createProcess(1, strlen_(name), name);
     char *name2 = "shell2";
-    createProcess(0, strlen_(name2), name2);
+    createProcess(1, strlen_(name2), name2);
     char *name3 = "shell3";
-    createProcess(0, strlen_(name3), name3);
+    createProcess(1, strlen_(name3), name3);
     // char buff[50];
     // for (uint16_t i = 1; i < 25; i++)
     // {
@@ -61,11 +61,10 @@ void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint3
     printf("gdt virtual addr:0x%p\n", roodos.gdt->sd);
 
     roodos.market = initMemoryManagement(memCount, (void *)memAddr, (void *)KernelVAddr, (void *)pTablePhAddr);
-
+    interruptInit();
     initSemaphoreMoudle();
     initProcess(roodos.tss, roodos.gdt);
     sysDevInit();
-    interruptInit();
 }
 void initRoodOs()
 {

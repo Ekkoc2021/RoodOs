@@ -40,6 +40,12 @@ extern bool sem_open(uint32_t semId);
 extern void semWait(int32_t semId);
 extern void semSignal(int32_t semId);
 
+extern void registerDev(device *dev);
+
+extern void sleep(uint32_t ms);
+
+extern uint32_t getTickDifferent(uint32_t yourTick);
+
 uint8_t channel_cnt;            // 按硬盘数计算的通道数
 struct ide_channel channels[2]; // 有两个ide通道
 
@@ -108,8 +114,6 @@ static void select_sector(struct disk *hd, uint32_t lba, uint8_t sec_cnt)
 /* 向通道channel发命令cmd */
 static void cmd_out(struct ide_channel *channel, uint8_t cmd)
 {
-    /* 只要向硬盘发出了命令便将此标记置为true,硬盘中断处理程序需要根据它来判断 */
-    channel->expecting_intr = true;
     outb(reg_cmd(channel), cmd);
 }
 
@@ -263,24 +267,6 @@ void ide_write(struct disk *hd, uint32_t lba, void *buf, uint32_t sec_cnt)
     // lock_release(&hd->my_channel->lock);
 }
 
-/* 硬盘中断处理程序 */
-void intr_hd_handler(uint8_t irq_no)
-{
-    ASSERT(irq_no == 0x2e || irq_no == 0x2f);
-    uint8_t ch_no = irq_no - 0x2e;
-    struct ide_channel *channel = &channels[ch_no];
-    ASSERT(channel->irq_no == irq_no);
-    /* 不必担心此中断是否对应的是这一次的expecting_intr,
-     * 每次读写硬盘时会申请锁,从而保证了同步一致性 */
-    if (channel->expecting_intr)
-    {
-        channel->expecting_intr = false;
-        // sema_up(&channel->disk_done);
-
-        /* 读取状态寄存器使硬盘控制器认为此次的中断已被处理,从而硬盘可以继续执行新的读写 */
-        inb(reg_status(channel));
-    }
-}
 /* 将dst中len个相邻字节交换位置后存入buf */
 static void swap_pairs_bytes(const char *dst, char *buf, uint32_t len)
 {
@@ -340,6 +326,7 @@ static void partition_scan(struct disk *hd, uint32_t ext_lba)
     struct boot_sector *bs = &sec;
 
     ide_read(hd, ext_lba, bs, 1);
+
     uint8_t part_idx = 0;
     struct partition_table_entry *p = bs->partition_table;
 
@@ -421,8 +408,13 @@ void ide_init()
         channel->expecting_intr = false; // 未向硬盘写入指令时不期待硬盘的中断
 
         // 不会通过这里访问磁盘!
-        // initSem(1, &channel->semId);
-        // ASSERT(channel->semId > 0);
+        initSem(1, &channel->lock);
+        ASSERT(channel->lock > 0);
+
+        initSem(0, &channel->dataLock);
+        ASSERT(channel->dataLock > 0);
+
+        channel->user = 0;
 
         // 获取通道对应磁盘的分区信息
         while (dev_no < 2)
@@ -447,23 +439,245 @@ void ide_init()
     log("ide_init done\n");
 }
 
+extern processManager manager;
+struct disk *nowHd; // 当前正在访问的hd
 // 以磁盘为单位抽象设备
-device disk[DISKMAXLENGTH];
+void interruptBusyWait(struct disk *hd)
+{
+    struct ide_channel *channel = hd->my_channel;
+    while (1)
+    {
+        if (!(inb(reg_status(channel)) & BIT_STAT_BSY))
+        {
+            (inb(reg_status(channel)) & BIT_STAT_DRQ);
+            return;
+        }
+        else
+        {
+            // 中断是用户正确引起
+            hd->my_channel->expecting_intr = true;
+            semWait(hd->my_channel->dataLock); // 阻塞
+        }
+    }
+    return false;
+}
+uint32_t open_disk(device *dev)
+{
+    // 硬盘允许被多个应用打开
+    dev->open++;
+}
 
-uint32_t open_disk(device *dev);
-int32_t read_disk(device *dev, uint32_t addr, char *buf, uint32_t size);
-int32_t write_disk(device *dev, uint32_t addr, char *buf, uint32_t size);
-uint32_t control_disk(device *dev, uint32_t cmd, int32_t *args, uint32_t n);
-void close_disk(device *dev);
+int32_t read_disk(device *dev, uint32_t lba, char *buf, uint32_t size)
+{
 
+    uint32_t sec_cnt = size % 512 == 0 ? size / 512 : size / 512 + 1;
+
+    struct disk *hd = (struct disk *)dev->data;
+
+    if (manager.now != hd->my_channel->user)
+    {
+        semWait(hd->my_channel->lock);
+        hd->my_channel->user = manager.now;
+    }
+    else
+    {
+        goto continue_read;
+    }
+
+    /* 1 先选择操作的硬盘 */
+    select_disk(hd);
+
+    nowHd = hd;
+    hd->my_channel->secs_op = 0;
+    hd->my_channel->secs_done = 0;
+
+    while (hd->my_channel->secs_done < sec_cnt)
+    {
+        // 处理超过256扇区的的情况
+        if ((hd->my_channel->secs_done + 256) <= sec_cnt)
+        {
+            hd->my_channel->secs_op = 256;
+        }
+        else
+        {
+            hd->my_channel->secs_op = sec_cnt - hd->my_channel->secs_done;
+        }
+
+        for (uint16_t i = 0; i < 50000; i++)
+        {
+            if (hd->my_channel->user == 100)
+            {
+                hd->my_channel->user = 0;
+            }
+        }
+
+        /* 2 写入待读入的扇区数和起始扇区号 */
+        select_sector(hd, lba + hd->my_channel->secs_done, hd->my_channel->secs_op);
+
+        /* 3 执行的命令写入reg_cmd寄存器 */
+        cmd_out(hd->my_channel, CMD_READ_SECTOR);                 // 准备开始读数据
+        hd->my_channel->workStartLba = hd->my_channel->secs_done; // 工作起始扇区
+    continue_read:
+        while (hd->my_channel->secs_done < hd->my_channel->secs_op + hd->my_channel->workStartLba)
+        {
+            interruptBusyWait(hd);
+            read_from_sector(hd, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), 1);
+            hd->my_channel->secs_done++;
+        }
+    }
+    hd->my_channel->user = 0;
+
+    semSignal(hd->my_channel->lock);
+}
+
+int32_t write_disk(device *dev, uint32_t lba, char *buf, uint32_t size)
+{
+    uint32_t sec_cnt = size % 512 == 0 ? size / 512 : size / 512 + 1;
+
+    struct disk *hd = (struct disk *)dev->data;
+
+    if (manager.now != hd->my_channel->user)
+    {
+        semWait(hd->my_channel->lock);
+        hd->my_channel->user = manager.now;
+    }
+    else
+    {
+        // 说明是阻塞后导致goto
+        goto continue_write;
+    }
+
+    /* 1 先选择操作的硬盘 */
+    select_disk(hd);
+
+    nowHd = hd;
+    hd->my_channel->secs_op = 0;
+    hd->my_channel->secs_done = 0;
+
+    while (hd->my_channel->secs_done < sec_cnt)
+    {
+        // 处理超过256扇区的的情况
+        if ((hd->my_channel->secs_done + 256) <= sec_cnt)
+        {
+            hd->my_channel->secs_op = 256;
+        }
+        else
+        {
+            hd->my_channel->secs_op = sec_cnt - hd->my_channel->secs_done;
+        }
+
+        for (uint16_t i = 0; i < 50000; i++)
+        {
+            if (hd->my_channel->user == 100)
+            {
+                hd->my_channel->user = 0;
+            }
+        }
+
+        /* 2 写入待写入的扇区数和起始扇区号 */
+        select_sector(hd, lba + hd->my_channel->secs_done, hd->my_channel->secs_op);
+
+        /* 3 执行的命令写入reg_cmd寄存器 */
+        cmd_out(hd->my_channel, CMD_WRITE_SECTOR); // 准备开始写数据
+
+        hd->my_channel->workStartLba = hd->my_channel->secs_done; // 记录当前工作的起始扇区
+    continue_write:
+        while (hd->my_channel->secs_done < hd->my_channel->secs_op + hd->my_channel->workStartLba)
+        { // 当前工作起始扇区加操作扇区等于当前工作结束扇区
+            interruptBusyWait(hd);
+            write2sector(hd, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), 1);
+            hd->my_channel->secs_done++;
+        }
+    }
+    hd->my_channel->user = 0;
+
+    semSignal(hd->my_channel->lock);
+}
+uint32_t control_disk(device *dev, uint32_t cmd, int32_t *args, uint32_t n)
+{
+}
+void close_disk(device *dev)
+{
+}
+device disk_dev[DISKMAXLENGTH];
+dev_type diskType = {
+    .typeId = DISK,
+    .open = open_disk,
+    .read = read_disk,
+    .write = write_disk,
+    .control = control_disk,
+    .close = close_disk,
+};                  // 磁盘类型
+uint32_t diskCount; // 磁盘数量
 // 初始化磁盘设备对象
 void initDiskDevOBJ()
 {
+    sprintf_(&(diskType.name), "disk");
+    diskCount = 0;
+    // i:通道的索引
+    for (uint16_t i = 0; i < 2; i++)
+    {
+        // 通道是否有磁盘
+        if (channels[i].irq_no != 0)
+        {
+            // 如果有中断号说明有挂载磁盘
+            // j:通道磁盘索引
+            for (uint16_t j = 0; j < 2; j++)
+            {
+                if (channels[i].devices[j].my_channel != 0)
+                {
+                    disk_dev[diskCount].data = &(channels[i].devices[j]);
+                    disk_dev[diskCount].type = &diskType;
+                    disk_dev[diskCount].open = 0;
+
+                    registerDev(&(disk_dev[diskCount]));
+
+                    ASSERT(disk_dev[diskCount].deviceId != DEVSIZE + 1);
+                    diskCount++;
+                }
+            }
+        }
+    }
 }
+
+uint16_t firstHdHandler = 0;
+void intr_hd_handler(uint8_t irq_no)
+{
+    ASSERT(irq_no == 0x2e || irq_no == 0x2f);
+    uint8_t ch_no = irq_no - 0x2e;
+    struct ide_channel *channel = &channels[ch_no];
+    ASSERT(channel->irq_no == irq_no);
+    /* 不必担心此中断是否对应的是这一次的expecting_intr,
+     * 每次读写硬盘时会申请锁,从而保证了同步一致性 */
+    if (channel->expecting_intr)
+    {
+        // 首次读取磁盘:读取扇区信息,开启中断后会有一个中断
+        // expecting_intr中断确保中断是用户正确引起的
+        channel->expecting_intr = false;
+        semSignal(channels[ch_no].dataLock);
+        /* 读取状态寄存器使硬盘控制器认为此次的中断已被处理,
+         * 从而硬盘可以继续执行新的读写 */
+    }
+    inb(reg_status(channel));
+}
+extern void startIDEInterrupt();
 void diskInit()
 {
     // 初始化系统挂载的硬盘!
     ide_init();
     // 已经成功读取到系统相关的磁盘的信息
-    // todo 将磁盘抽象成设备对象注册到设备管理中
+    // todo: 将磁盘抽象成设备对象注册到设备管理中
+    initDiskDevOBJ();
+
+    startIDEInterrupt();
+
+    // char buff[1024];
+    // 测试都去磁盘
+    // read_disk(&disk_dev[0], 10, buff, 1024);
+    // for (uint16_t i = 0; i < 1024; i++)
+    // {
+    //     buff[i] = i;
+    // }
+
+    // write_disk(&disk_dev[0], 410, buff, 1024);
 }
