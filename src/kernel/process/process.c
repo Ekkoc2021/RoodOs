@@ -242,8 +242,8 @@ void function()
 {
     char buff[128];
     devParam_ d;
-    d.typeId = 2;
-    d.deviceId = 1;
+    d.typeId = 1;
+    d.deviceId = 0;
     d.buf = buff1;
     d.size = 1024;
     d.addr = 400;
@@ -260,69 +260,97 @@ void function()
         : "r"(&d)
         : "%eax", "%ebx");
     uint32_t flag = 0;
+    int32_t index = 0;
     while (1)
     {
-        // if (manager.now->id == 1)
-        if (manager.now->id == 1 && flag < 10)
+        if (manager.now->id == 2)
         {
-            asm volatile(
-                "movl $61, %%eax\n"
-                "movl %0, %%ebx\n"
-                "int $0x30\n"
-                :
-                : "r"(&d)
-                : "%eax", "%ebx");
 
-            bool isClear = false;
-            for (uint32_t i = 0; i < 1024; i++)
+            while (index >= 0)
             {
-                if (buff1[i] != 0)
-                {
-                    isClear = true;
-                    break;
-                }
+                asm volatile("movl $66, %%eax\n"
+                             "movl %0, %%ebx\n"
+                             "movl %1, %%ecx\n"
+                             "int $0x30\n"
+                             :
+                             : "r"(buff), "r"(&index)
+                             : "%eax", "%ebx", "%ecx");
+                asm volatile("movl $1, %%eax\n"
+                             "movl %0, %%ebx\n"
+                             "int $0x30\n"
+                             :
+                             : "r"(buff)
+                             : "%eax", "%ebx");
             }
+        }
 
-            if (isClear)
+        if (manager.now->id == 1)
+            if (manager.now->id == 1 && flag < 10)
             {
-                for (uint16_t i = 0; i < 1024; i++)
-                {
-                    buff1[i] = 0;
-                }
                 asm volatile(
-                    "movl $62, %%eax\n"
+                    "movl $65, %%eax\n"
                     "movl %0, %%ebx\n"
                     "int $0x30\n"
                     :
                     : "r"(&d)
                     : "%eax", "%ebx");
+                buff1[0] = 'q';
+                asm volatile("movl $1, %%eax\n"
+                             "movl %0, %%ebx\n"
+                             "int $0x30\n"
+                             :
+                             : "r"(buff1)
+                             : "%eax", "%ebx");
+                // bool isClear = false;
+                // for (uint32_t i = 0; i < 1024; i++)
+                // {
+                //     if (buff1[i] != 0)
+                //     {
+                //         isClear = true;
+                //         break;
+                //     }
+                // }
+
+                // if (isClear)
+                // {
+                //     for (uint16_t i = 0; i < 1024; i++)
+                //     {
+                //         buff1[i] = 0;
+                //     }
+                //     asm volatile(
+                //         "movl $62, %%eax\n"
+                //         "movl %0, %%ebx\n"
+                //         "int $0x30\n"
+                //         :
+                //         : "r"(&d)
+                //         : "%eax", "%ebx");
+                // }
+                // if (1)
+                // {
+                //     flag++;
+                //     for (uint16_t i = 0; i < 1024; i++)
+                //     {
+                //         buff1[i] = 106;
+                //     }
+                //     asm volatile(
+                //         "movl $62, %%eax\n"
+                //         "movl %0, %%ebx\n"
+                //         "int $0x30\n"
+                //         :
+                //         : "r"(&d)
+                //         : "%eax", "%ebx");
             }
-            // if (1)
-            // {
-            //     flag++;
-            //     for (uint16_t i = 0; i < 1024; i++)
-            //     {
-            //         buff1[i] = 106;
-            //     }
-            //     asm volatile(
-            //         "movl $62, %%eax\n"
-            //         "movl %0, %%ebx\n"
-            //         "int $0x30\n"
-            //         :
-            //         : "r"(&d)
-            //         : "%eax", "%ebx");
-            // }
-            d.addr += 2;
-            flag++;
-            // asm volatile(
-            //     "movl $53, %%eax\n"
-            //     "movl %0, %%ebx\n"
-            //     "int $0x30\n"
-            //     :
-            //     : "r"(seId)
-            //     : "%eax", "%ebx");
-            /* code */
-        }
+        d.addr += 2;
+        flag++;
+        // asm volatile(
+        //     "movl $53, %%eax\n"
+        //     "movl %0, %%ebx\n"
+        //     "int $0x30\n"
+        //     :
+        //     : "r"(seId)
+        //     : "%eax", "%ebx");
+        /* code */
+        // }
     }
 }
 /*

@@ -22,6 +22,8 @@ extern int32_t read(uint32_t typeId, uint32_t deviceId, uint32_t addr, char *buf
 extern int32_t write(uint32_t typeId, uint32_t deviceId, uint32_t addr, char *buf, uint32_t size);
 extern uint32_t control(uint32_t typeId, uint32_t deviceId, uint32_t cmd, int32_t *args, uint32_t n);
 extern void close(uint32_t typeId, uint32_t deviceId);
+extern void info(uint32_t typeId, uint32_t deviceId, char *buff);
+extern int32_t info_by_index(int32_t index, char *buff);
 
 void sys_call(StackInfo *s)
 {
@@ -75,6 +77,16 @@ void sys_call(StackInfo *s)
         // ebx==>devParam
         // ecx==>返回参数地址
         close(((devParam *)(s->EBX))->typeId, ((devParam *)(s->EBX))->deviceId);
+        break;
+    case 65:
+        // ebx==>devParam
+        // ecx==>返回参数地址
+        info(((devParam *)(s->EBX))->typeId, ((devParam *)(s->EBX))->deviceId, ((devParam *)(s->EBX))->buf);
+        break;
+    case 66:
+        // ebx=int32_t* index
+        // ecx=char *buff
+        *(uint32_t *)(s->ECX) = info_by_index(*(uint32_t *)(s->ECX), s->EBX);
         break;
     default:
         break;

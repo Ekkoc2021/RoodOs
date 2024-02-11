@@ -596,6 +596,15 @@ int32_t read_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
     }
     return size;
 }
+
+void info_disk(device *dev, char buff[DEVINFOSIZE])
+{
+    struct disk *hd = (struct disk *)dev->data;
+    sprintf_(buff, "name:%s ,typeId : %d , dev_id : %d , open_cnt : %d \n"
+                   "   channel: %s , diskName: %s_%s , sectors: %d \n",
+             dev->type->name, dev->type->typeId, dev->deviceId, dev->open, hd->my_channel->name, hd->name, hd->dev_no == 0 ? "master" : "slave", hd->sectors);
+}
+
 device disk_dev[DISKMAXLENGTH];
 dev_type diskType = {
     .typeId = DISK,
@@ -603,6 +612,7 @@ dev_type diskType = {
     .read = read_disk_syn,
     .write = write_disk_syn,
     .control = control_disk,
+    .info = info_disk,
     .close = close_disk,
 };                  // 磁盘类型
 uint32_t diskCount; // 磁盘数量

@@ -81,6 +81,11 @@ void dataToInbuff(char data)
     }
 }
 
+void info_tty(device *dev, char buff[DEVINFOSIZE])
+{
+    sprintf_(buff, "name:%s ,typeId : %d , dev_id : %d , open_cnt : %d\n", dev->type->name, dev->type->typeId, dev->deviceId, dev->open);
+}
+
 dev_type tty_type = {
     .open = open_tty,
     .read = read_tty,
@@ -88,6 +93,7 @@ dev_type tty_type = {
     .close = close_tty,
     .control = control_tty,
     .typeId = TTY,
+    .info = info_tty,
 };
 
 device tty_dev;

@@ -110,9 +110,38 @@ void close(uint32_t typeId, uint32_t deviceId)
         if (all_dev[i].type->typeId == typeId && all_dev[i].deviceId == deviceId)
         {
 
-            return all_dev[i].type->close(&(all_dev[i]));
+            all_dev[i].type->close(&(all_dev[i]));
         }
     }
+}
+
+void info(uint32_t typeId, uint32_t deviceId, char buff[DEVINFOSIZE])
+{
+    for (uint16_t i = 0; i < DEVSIZE; i++)
+    {
+        if (all_dev[i].type->typeId == typeId && all_dev[i].deviceId == deviceId)
+        {
+
+            all_dev[i].type->info(&(all_dev[i]), buff);
+        }
+    }
+}
+
+// 提供一个获取所有效设备信息的接口,返回下一个有效index
+int32_t info_by_index(int32_t index, char buff[DEVINFOSIZE])
+{
+    if (index < DEVSIZE && all_dev[index].type != NULL)
+    {
+        all_dev[index].type->info(&(all_dev[index]), buff);
+        for (uint32_t i = index + 1; i < DEVSIZE; i++)
+        {
+            if (all_dev[i].type != NULL)
+            {
+                return i;
+            }
+        }
+    }
+    return -1;
 }
 
 void sysDevInit()

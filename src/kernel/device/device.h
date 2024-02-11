@@ -6,6 +6,7 @@
 
 #define DEVSIZE 128
 #define DEVNAMESIZE 128
+#define DEVINFOSIZE 128
 struct dev_type;
 typedef enum devType
 {
@@ -30,6 +31,7 @@ typedef struct dev_type
     int32_t (*read)(device *dev, uint32_t addr, char *buf, uint32_t size);
     int32_t (*write)(device *dev, uint32_t addr, char *buf, uint32_t size);
     uint32_t (*control)(device *dev, uint32_t cmd, int32_t *args, uint32_t n);
+    void (*info)(device *dev, char buff[DEVINFOSIZE]); // 返回设备信息
     void (*close)(device *dev);
 } dev_type;
 
