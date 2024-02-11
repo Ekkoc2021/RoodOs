@@ -110,10 +110,14 @@ kernelDep=$(OUTPUT)kernel.o $(OUTPUT)roodos.o \
 	$(OUTPUT)physicalMem.o $(OUTPUT)virtualMem.o $(OUTPUT)memory.o \
 	$(OUTPUT)semaphore.o \
 	$(OUTPUT)console.o $(OUTPUT)keyboard.o $(OUTPUT)device.o $(OUTPUT)tty.o $(OUTPUT)disk.o\
+	$(OUTPUT)fs.o \
 	$(OUTPUT)kernel0.o \
 	$(OUTPUT)io.o
 
 $(OUTPUT)roodos.o : $(KERNEL)/roodos.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)fs.o : $(KERNEL)/fs/fs.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
 $(OUTPUT)console.o : $(KERNEL)/device/console.c

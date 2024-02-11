@@ -14,7 +14,10 @@ extern void destroyPCB(PCB *pcb); // 不会检查pcb是否正确
 extern processManager manager;
 extern void initSemaphoreMoudle();
 extern void sysDevInit();
+extern void fs_init();
+
 uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...);
+
 void initRoodOs();
 void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePhAddr);
 // extern memoryMarket *market; 已经定义过了
@@ -60,11 +63,17 @@ void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint3
     printf("gdt   count:%d \n", (roodos.gdt->limit + 1) / 8);
     printf("gdt virtual addr:0x%p\n", roodos.gdt->sd);
 
-    roodos.market = initMemoryManagement(memCount, (void *)memAddr, (void *)KernelVAddr, (void *)pTablePhAddr);
-    interruptInit();
-    initSemaphoreMoudle();
-    initProcess(roodos.tss, roodos.gdt);
-    sysDevInit();
+    // 内存管理初始化
+    roodos.market = initMemoryManagement(
+        memCount, (void *)memAddr,
+        (void *)KernelVAddr,
+        (void *)pTablePhAddr); // 内存管理初始化
+
+    interruptInit();                     // 中断初始化
+    initSemaphoreMoudle();               // 系统全局信号量模块初始
+    initProcess(roodos.tss, roodos.gdt); // 进程管理初始化
+    sysDevInit();                        // 系统设备初始化
+    fs_init();                           // 文件系统初始化
 }
 void initRoodOs()
 {
