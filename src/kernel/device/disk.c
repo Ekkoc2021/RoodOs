@@ -1,8 +1,6 @@
 // 磁盘设备相关
 // 只支持主通道的磁盘,有空补充磁盘识别!
 #include "disk.h"
-#define DISKCOUNTADDR 0xc0000475
-#define DISKMAXLENGTH 8 // 将磁盘抽象成设备对象,最多支持8块磁盘对象,应该也不会超过这个数量
 
 /* 定义硬盘各寄存器的端口号 */
 #define reg_data(channel) (channel->port_base + 0)
@@ -486,7 +484,7 @@ void close_disk(device *dev)
 // 同步读写
 int32_t write_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
 {
-
+    char buff[512];
     uint32_t sec_cnt = size % 512 == 0 ? size / 512 : size / 512 + 1;
 
     struct disk *hd = (struct disk *)dev->data;
@@ -525,7 +523,16 @@ int32_t write_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
         while (hd->my_channel->secs_done < hd->my_channel->secs_op + hd->my_channel->workStartLba)
         { // 当前工作起始扇区加操作扇区等于当前工作结束扇区
             busy_wait(hd);
-            write2sector(hd, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), 1);
+            if (size - hd->my_channel->secs_done * 512 > 512)
+            {
+                memcpy_(buff, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), 512);
+            }
+            else
+            {
+                memcpy_(buff, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), size - hd->my_channel->secs_done * 512);
+            }
+
+            write2sector(hd, buff, 1);
             hd->my_channel->secs_done++;
         }
 
@@ -541,9 +548,10 @@ int32_t write_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
     }
     return size;
 }
+
 int32_t read_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
 {
-
+    char buff[512];
     uint32_t sec_cnt = size % 512 == 0 ? size / 512 : size / 512 + 1;
 
     struct disk *hd = (struct disk *)dev->data;
@@ -581,7 +589,17 @@ int32_t read_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
         while (hd->my_channel->secs_done < hd->my_channel->secs_op + hd->my_channel->workStartLba)
         {
             busy_wait(hd);
-            read_from_sector(hd, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), 1);
+            // read_from_sector(hd, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), 1);
+            read_from_sector(hd, buff, 1);
+            if (size - hd->my_channel->secs_done * 512 > 512)
+            {
+                memcpy_((void *)((uint32_t)buf + hd->my_channel->secs_done * 512), buff, 512);
+            }
+            else
+            {
+                memcpy_((void *)((uint32_t)buf + hd->my_channel->secs_done * 512), buff, size - hd->my_channel->secs_done * 512);
+            }
+
             hd->my_channel->secs_done++;
         }
 
@@ -606,6 +624,8 @@ void info_disk(device *dev, char buff[DEVINFOSIZE])
 }
 
 device disk_dev[DISKMAXLENGTH];
+uint32_t diskCount; // 磁盘数量
+
 dev_type diskType = {
     .typeId = DISK,
     .open = open_disk,
@@ -614,8 +634,8 @@ dev_type diskType = {
     .control = control_disk,
     .info = info_disk,
     .close = close_disk,
-};                  // 磁盘类型
-uint32_t diskCount; // 磁盘数量
+}; // 磁盘类型
+
 // 初始化磁盘设备对象
 void initDiskDevOBJ()
 {
@@ -634,6 +654,7 @@ void initDiskDevOBJ()
                 if (channels[i].devices[j].my_channel != 0)
                 {
                     disk_dev[diskCount].data = &(channels[i].devices[j]);
+                    channels[i].devices[j].dev_index = diskCount;
                     disk_dev[diskCount].type = &diskType;
                     disk_dev[diskCount].open = 0;
 
