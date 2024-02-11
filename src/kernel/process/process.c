@@ -243,7 +243,7 @@ void function()
     char buff[128];
     devParam_ d;
     d.typeId = 2;
-    d.deviceId = 0;
+    d.deviceId = 1;
     d.buf = buff1;
     d.size = 1024;
     d.addr = 400;
@@ -265,44 +265,29 @@ void function()
         // if (manager.now->id == 1)
         if (manager.now->id == 1 && flag < 10)
         {
-            // asm volatile(
-            //     "movl $61, %%eax\n"
-            //     "movl %0, %%ebx\n"
-            //     "int $0x30\n"
-            //     :
-            //     : "r"(&d)
-            //     : "%eax", "%ebx");
+            asm volatile(
+                "movl $61, %%eax\n"
+                "movl %0, %%ebx\n"
+                "int $0x30\n"
+                :
+                : "r"(&d)
+                : "%eax", "%ebx");
 
-            // bool isClear = false;
-            // for (uint32_t i = 0; i < 1024; i++)
-            // {
-            //     if (buff1[i] != 0)
-            //     {
-            //         isClear = true;
-            //         break;
-            //     }
-            // }
-
-            // if (isClear)
-            // {
-            //     for (uint16_t i = 0; i < 1024; i++)
-            //     {
-            //         buff1[i] = 0;
-            //     }
-            //     asm volatile(
-            //         "movl $62, %%eax\n"
-            //         "movl %0, %%ebx\n"
-            //         "int $0x30\n"
-            //         :
-            //         : "r"(&d)
-            //         : "%eax", "%ebx");
-            // }
-            if (1)
+            bool isClear = false;
+            for (uint32_t i = 0; i < 1024; i++)
             {
-                flag++;
+                if (buff1[i] != 0)
+                {
+                    isClear = true;
+                    break;
+                }
+            }
+
+            if (isClear)
+            {
                 for (uint16_t i = 0; i < 1024; i++)
                 {
-                    buff1[i] = 106;
+                    buff1[i] = 0;
                 }
                 asm volatile(
                     "movl $62, %%eax\n"
@@ -312,6 +297,21 @@ void function()
                     : "r"(&d)
                     : "%eax", "%ebx");
             }
+            // if (1)
+            // {
+            //     flag++;
+            //     for (uint16_t i = 0; i < 1024; i++)
+            //     {
+            //         buff1[i] = 106;
+            //     }
+            //     asm volatile(
+            //         "movl $62, %%eax\n"
+            //         "movl %0, %%ebx\n"
+            //         "int $0x30\n"
+            //         :
+            //         : "r"(&d)
+            //         : "%eax", "%ebx");
+            // }
             d.addr += 2;
             flag++;
             // asm volatile(

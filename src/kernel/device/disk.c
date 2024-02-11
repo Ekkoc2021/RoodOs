@@ -160,10 +160,6 @@ static bool busy_wait(struct disk *hd)
         {
             return (inb(reg_status(channel)) & BIT_STAT_DRQ);
         }
-        else
-        {
-            log("wait !!\n");
-        }
     }
     return false;
 }
@@ -281,7 +277,7 @@ static void swap_pairs_bytes(const char *dst, char *buf, uint32_t len)
 }
 
 /* 获得硬盘参数信息 */
-static void identify_disk(struct disk *hd)
+static bool identify_disk(struct disk *hd)
 {
     char id_info[512];
 
@@ -296,9 +292,7 @@ static void identify_disk(struct disk *hd)
     /* 醒来后开始执行下面代码*/
     if (!busy_wait(hd))
     { //  若失败
-        char error[64];
-        sprintf_(error, "%s identify failed!!!!!!\n", hd->name);
-        PANIC(error);
+        return false;
     }
 
     // 不支持扩展分区!! 使用同步读取功能,读取磁盘分区表所在扇区即可
@@ -314,8 +308,10 @@ static void identify_disk(struct disk *hd)
     swap_pairs_bytes(&id_info[md_start], buf, md_len);
     log("      MODULE: %s\n", buf);
     uint32_t sectors = *(uint32_t *)&id_info[60 * 2];
+    hd->sectors = sectors;
     log("      SECTORS: %d\n", sectors);
     log("      CAPACITY: %dMB\n", sectors * 512 / 1024 / 1024);
+    return true;
 }
 
 /* 扫描硬盘hd中地址为ext_lba的扇区中的所有分区 */
@@ -423,15 +419,21 @@ void ide_init()
             // 初始化了对应hd的channel,设备编号,设备名称
             hd->my_channel = channel;
             hd->dev_no = dev_no;
-            sprintf_(hd->name, "sd%c", 'a' + channel_no * 2 + dev_no);
+
             // 识别硬盘
-            identify_disk(hd); // 获取硬盘参数
-            // if (dev_no != 0)
-            // {
-            partition_scan(hd, 0); // 扫描该硬盘上的分区
-            // }
-            p_no = 0, l_no = 0;
-            dev_no++;
+            if (identify_disk(hd))
+            {
+                sprintf_(hd->name, "sd%c", 'a' + channel_no * 2 + dev_no);
+                // 获取硬盘参数
+                partition_scan(hd, 0); // 扫描该硬盘上的分区
+                p_no = 0, l_no = 0;
+                dev_no++;
+            }
+            else
+            {
+                hd->my_channel = 0;
+                hd->dev_no = 0;
+            }
         }
         dev_no = 0;
         channel_no++; // 下一个channel
@@ -450,13 +452,11 @@ void interruptBusyWait(struct disk *hd)
     {
         if (!(inb(reg_status(channel)) & BIT_STAT_BSY))
         {
-            log("can do!\n");
             (inb(reg_status(channel)) & BIT_STAT_DRQ);
             return;
         }
         else
         {
-            log("wait %d !\n", i);
             i++;
             // 中断是用户正确引起
             hd->my_channel->expecting_intr = true;
@@ -486,16 +486,15 @@ void close_disk(device *dev)
 // 同步读写
 int32_t write_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
 {
-    // 简单的检查一下是否打开
-    if (dev->open < 0)
-    {
-        return -1;
-    }
 
     uint32_t sec_cnt = size % 512 == 0 ? size / 512 : size / 512 + 1;
 
     struct disk *hd = (struct disk *)dev->data;
-
+    // 简单的检查一下是否打开
+    if (dev->open < 0 && lba + sec_cnt <= hd->sectors)
+    {
+        return -1;
+    }
     select_disk(hd);
 
     nowHd = hd;
@@ -544,15 +543,15 @@ int32_t write_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
 }
 int32_t read_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
 {
-    // 简单的检查一下是否打开
-    if (dev->open < 0)
-    {
-        return -1;
-    }
 
     uint32_t sec_cnt = size % 512 == 0 ? size / 512 : size / 512 + 1;
 
     struct disk *hd = (struct disk *)dev->data;
+
+    if (dev->open < 0 && lba + sec_cnt <= hd->sectors)
+    {
+        return -1;
+    }
 
     /* 1 先选择操作的硬盘 */
     select_disk(hd);
@@ -668,15 +667,4 @@ void diskInit()
     // 已经成功读取到系统相关的磁盘的信息
     // todo: 将磁盘抽象成设备对象注册到设备管理中
     initDiskDevOBJ();
-
-    // startIDEInterrupt(); // 异步读写测试跑不通
-
-    // char buff[1024];
-    // for (uint32_t i = 0; i < 1024; i++)
-    // {
-    //     buff[i] = 101;
-    // }
-    // log("write test: start 0x%p ,data : %c,size : %d \n", 399 * 512, buff[0], 1024);
-    // write_disk_syn(&disk_dev[0], 399, buff, 1024);
-    // log("write done: %p\n", 399 * 512 + 1024);
 }
