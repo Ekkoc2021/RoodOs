@@ -263,9 +263,8 @@ void function()
     while (1)
     {
         // if (manager.now->id == 1)
-        if (manager.now->id == 1 && flag < 5)
+        if (manager.now->id == 1 && flag < 10)
         {
-
             // asm volatile(
             //     "movl $61, %%eax\n"
             //     "movl %0, %%ebx\n"
@@ -303,7 +302,7 @@ void function()
                 flag++;
                 for (uint16_t i = 0; i < 1024; i++)
                 {
-                    buff1[i] = 102;
+                    buff1[i] = 106;
                 }
                 asm volatile(
                     "movl $62, %%eax\n"
@@ -314,6 +313,7 @@ void function()
                     : "%eax", "%ebx");
             }
             d.addr += 2;
+            flag++;
             // asm volatile(
             //     "movl $53, %%eax\n"
             //     "movl %0, %%ebx\n"

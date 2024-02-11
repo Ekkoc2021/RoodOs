@@ -45,6 +45,8 @@ struct ide_channel
     // struct semaphore disk_done; // 用于阻塞、唤醒驱动程序
     int32_t dataLock;       // 每次访问只能有一个进程,数据锁
     struct disk devices[2]; // 一个通道上连接两个硬盘，一主一从
+    
+    // 异步读写用的一些变量
     uint32_t user;          // 当前使用的用户
     uint32_t secs_op;       // 每次操作的扇区数
     uint32_t secs_done;     // 已完成的扇区数

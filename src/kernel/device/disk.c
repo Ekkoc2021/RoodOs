@@ -153,17 +153,17 @@ static void write2sector(struct disk *hd, void *buf, uint8_t sec_cnt)
 static bool busy_wait(struct disk *hd)
 {
     struct ide_channel *channel = hd->my_channel;
-    uint16_t time_limit = 30 * 1000; // 可以等待30000毫秒
-    while (time_limit -= 10 >= 0)
+
+    while (true)
     {
         if (!(inb(reg_status(channel)) & BIT_STAT_BSY))
         {
             return (inb(reg_status(channel)) & BIT_STAT_DRQ);
         }
-        // else
-        // {
-        //     mtime_sleep(10); // 睡眠10毫秒
-        // }
+        else
+        {
+            log("wait !!\n");
+        }
     }
     return false;
 }
@@ -445,17 +445,22 @@ struct disk *nowHd; // 当前正在访问的hd
 void interruptBusyWait(struct disk *hd)
 {
     struct ide_channel *channel = hd->my_channel;
+    uint32_t i = 0;
     while (1)
     {
         if (!(inb(reg_status(channel)) & BIT_STAT_BSY))
         {
+            log("can do!\n");
             (inb(reg_status(channel)) & BIT_STAT_DRQ);
             return;
         }
         else
         {
+            log("wait %d !\n", i);
+            i++;
             // 中断是用户正确引起
             hd->my_channel->expecting_intr = true;
+            hd->my_channel->isWait = true;     // 发生了等待,意味着下一次读完需要消耗资源
             semWait(hd->my_channel->dataLock); // 阻塞
         }
     }
@@ -467,90 +472,35 @@ uint32_t open_disk(device *dev)
     dev->open++;
 }
 
-int32_t read_disk(device *dev, uint32_t lba, char *buf, uint32_t size)
+uint32_t control_disk(device *dev, uint32_t cmd, int32_t *args, uint32_t n)
 {
-
-    uint32_t sec_cnt = size % 512 == 0 ? size / 512 : size / 512 + 1;
-
-    struct disk *hd = (struct disk *)dev->data;
-
-    if (manager.now != hd->my_channel->user)
+}
+void close_disk(device *dev)
+{
+    if (dev->open > 0)
     {
-        semWait(hd->my_channel->lock);
-        hd->my_channel->user = manager.now;
+        dev->open--;
     }
-    else
-    {
-        goto continue_read;
-    }
-
-    /* 1 先选择操作的硬盘 */
-    select_disk(hd);
-
-    nowHd = hd;
-    hd->my_channel->secs_op = 0;
-    hd->my_channel->secs_done = 0;
-
-    while (hd->my_channel->secs_done < sec_cnt)
-    {
-        // 处理超过256扇区的的情况
-        if ((hd->my_channel->secs_done + 256) <= sec_cnt)
-        {
-            hd->my_channel->secs_op = 256;
-        }
-        else
-        {
-            hd->my_channel->secs_op = sec_cnt - hd->my_channel->secs_done;
-        }
-
-        for (uint16_t i = 0; i < 50000; i++)
-        {
-            if (hd->my_channel->user == 100)
-            {
-                hd->my_channel->user = 0;
-            }
-        }
-
-        /* 2 写入待读入的扇区数和起始扇区号 */
-        select_sector(hd, lba + hd->my_channel->secs_done, hd->my_channel->secs_op);
-
-        /* 3 执行的命令写入reg_cmd寄存器 */
-        cmd_out(hd->my_channel, CMD_READ_SECTOR);                 // 准备开始读数据
-        hd->my_channel->workStartLba = hd->my_channel->secs_done; // 工作起始扇区
-    continue_read:
-        while (hd->my_channel->secs_done < hd->my_channel->secs_op + hd->my_channel->workStartLba)
-        {
-            interruptBusyWait(hd);
-            read_from_sector(hd, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), 1);
-            hd->my_channel->secs_done++;
-        }
-    }
-    hd->my_channel->user = 0;
-
-    semSignal(hd->my_channel->lock);
 }
 
-int32_t write_disk(device *dev, uint32_t lba, char *buf, uint32_t size)
+// 同步读写
+int32_t write_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
 {
+    // 简单的检查一下是否打开
+    if (dev->open < 0)
+    {
+        return -1;
+    }
+
     uint32_t sec_cnt = size % 512 == 0 ? size / 512 : size / 512 + 1;
 
     struct disk *hd = (struct disk *)dev->data;
 
-    if (manager.now != hd->my_channel->user)
-    {
-        semWait(hd->my_channel->lock);
-        hd->my_channel->user = manager.now;
-    }
-    else
-    {
-        // 说明是阻塞后导致goto
-        goto continue_write;
-    }
-
-    /* 1 先选择操作的硬盘 */
     select_disk(hd);
 
     nowHd = hd;
+
+    // todo:secs_op/secs_done改为局部变量
     hd->my_channel->secs_op = 0;
     hd->my_channel->secs_done = 0;
 
@@ -564,14 +514,6 @@ int32_t write_disk(device *dev, uint32_t lba, char *buf, uint32_t size)
         else
         {
             hd->my_channel->secs_op = sec_cnt - hd->my_channel->secs_done;
-        }
-
-        for (uint16_t i = 0; i < 50000; i++)
-        {
-            if (hd->my_channel->user == 100)
-            {
-                hd->my_channel->user = 0;
-            }
         }
 
         /* 2 写入待写入的扇区数和起始扇区号 */
@@ -581,30 +523,86 @@ int32_t write_disk(device *dev, uint32_t lba, char *buf, uint32_t size)
         cmd_out(hd->my_channel, CMD_WRITE_SECTOR); // 准备开始写数据
 
         hd->my_channel->workStartLba = hd->my_channel->secs_done; // 记录当前工作的起始扇区
-    continue_write:
         while (hd->my_channel->secs_done < hd->my_channel->secs_op + hd->my_channel->workStartLba)
         { // 当前工作起始扇区加操作扇区等于当前工作结束扇区
-            interruptBusyWait(hd);
+            busy_wait(hd);
             write2sector(hd, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), 1);
             hd->my_channel->secs_done++;
         }
-    }
-    hd->my_channel->user = 0;
 
-    semSignal(hd->my_channel->lock);
+        // qemu 连续读或写需要时间间隔,防止下次读写出问题,vmbox测试没有这个问题
+        // 或者说开启硬盘中断也能解决qemu这个问题!!
+        for (uint16_t i = 0; i < 50000; i++)
+        {
+            if (hd->my_channel->secs_done < 0)
+            {
+                hd->my_channel->secs_done++;
+            }
+        }
+    }
+    return size;
 }
-uint32_t control_disk(device *dev, uint32_t cmd, int32_t *args, uint32_t n)
+int32_t read_disk_syn(device *dev, uint32_t lba, char *buf, uint32_t size)
 {
-}
-void close_disk(device *dev)
-{
+    // 简单的检查一下是否打开
+    if (dev->open < 0)
+    {
+        return -1;
+    }
+
+    uint32_t sec_cnt = size % 512 == 0 ? size / 512 : size / 512 + 1;
+
+    struct disk *hd = (struct disk *)dev->data;
+
+    /* 1 先选择操作的硬盘 */
+    select_disk(hd);
+
+    nowHd = hd;
+    hd->my_channel->secs_op = 0;
+    hd->my_channel->secs_done = 0;
+
+    while (hd->my_channel->secs_done < sec_cnt)
+    {
+        // 处理超过256扇区的的情况
+        if ((hd->my_channel->secs_done + 256) <= sec_cnt)
+        {
+            hd->my_channel->secs_op = 256;
+        }
+        else
+        {
+            hd->my_channel->secs_op = sec_cnt - hd->my_channel->secs_done;
+        }
+
+        /* 2 写入待读入的扇区数和起始扇区号 */
+        select_sector(hd, lba + hd->my_channel->secs_done, hd->my_channel->secs_op);
+
+        /* 3 执行的命令写入reg_cmd寄存器 */
+        cmd_out(hd->my_channel, CMD_READ_SECTOR);                 // 准备开始读数据
+        hd->my_channel->workStartLba = hd->my_channel->secs_done; // 工作起始扇区
+        while (hd->my_channel->secs_done < hd->my_channel->secs_op + hd->my_channel->workStartLba)
+        {
+            busy_wait(hd);
+            read_from_sector(hd, (void *)((uint32_t)buf + hd->my_channel->secs_done * 512), 1);
+            hd->my_channel->secs_done++;
+        }
+
+        // 空转消耗时间
+        for (uint16_t i = 0; i < 50000; i++)
+        {
+            if (hd->my_channel->secs_done < 0)
+            {
+                hd->my_channel->secs_done++;
+            }
+        }
+    }
+    return size;
 }
 device disk_dev[DISKMAXLENGTH];
 dev_type diskType = {
     .typeId = DISK,
     .open = open_disk,
-    .read = read_disk,
-    .write = write_disk,
+    .read = read_disk_syn,
+    .write = write_disk_syn,
     .control = control_disk,
     .close = close_disk,
 };                  // 磁盘类型
@@ -640,13 +638,13 @@ void initDiskDevOBJ()
     }
 }
 
-uint16_t firstHdHandler = 0;
 void intr_hd_handler(uint8_t irq_no)
 {
     ASSERT(irq_no == 0x2e || irq_no == 0x2f);
     uint8_t ch_no = irq_no - 0x2e;
     struct ide_channel *channel = &channels[ch_no];
     ASSERT(channel->irq_no == irq_no);
+    log("intr_hd_handler \n");
     /* 不必担心此中断是否对应的是这一次的expecting_intr,
      * 每次读写硬盘时会申请锁,从而保证了同步一致性 */
     if (channel->expecting_intr)
@@ -658,8 +656,10 @@ void intr_hd_handler(uint8_t irq_no)
         /* 读取状态寄存器使硬盘控制器认为此次的中断已被处理,
          * 从而硬盘可以继续执行新的读写 */
     }
+
     inb(reg_status(channel));
 }
+
 extern void startIDEInterrupt();
 void diskInit()
 {
@@ -669,15 +669,14 @@ void diskInit()
     // todo: 将磁盘抽象成设备对象注册到设备管理中
     initDiskDevOBJ();
 
-    startIDEInterrupt();
+    // startIDEInterrupt(); // 异步读写测试跑不通
 
     // char buff[1024];
-    // 测试都去磁盘
-    // read_disk(&disk_dev[0], 10, buff, 1024);
-    // for (uint16_t i = 0; i < 1024; i++)
+    // for (uint32_t i = 0; i < 1024; i++)
     // {
-    //     buff[i] = i;
+    //     buff[i] = 101;
     // }
-
-    // write_disk(&disk_dev[0], 410, buff, 1024);
+    // log("write test: start 0x%p ,data : %c,size : %d \n", 399 * 512, buff[0], 1024);
+    // write_disk_syn(&disk_dev[0], 399, buff, 1024);
+    // log("write done: %p\n", 399 * 512 + 1024);
 }
