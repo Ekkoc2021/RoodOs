@@ -15,7 +15,7 @@ def extract_and_process_function_declarations(file_path):
             a=declaration.split()
             if a[1]!="if":
                 processed_declaration = process_function_declaration(declaration)
-                print(processed_declaration)
+                print("extern "+processed_declaration)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
