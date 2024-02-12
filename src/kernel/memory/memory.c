@@ -326,6 +326,78 @@ void freeNPage(memoryMarket *market, uint32_t vaddr, uint32_t n)
     Resume_irq(status);
 }
 
-void freeUser(memoryMarket *market)
+//------------------ todo : 细粒度内存管理---------------
+// 指定内存页将其拆分为指定大小的内存区域
+
+void page_split(uint32_t addr, uint32_t size)
 {
+}
+
+listNode *searchUsefulNode(linkedList *mem_List)
+{
+    listNode *temp = mem_List->head.next;
+    memoryArea *ma;
+    while (temp != &mem_List->head)
+    {
+        ma = (memoryArea *)(temp->data);
+        if (ma->bitmap.used < ma->bitmap.size)
+        {
+            return temp;
+        }
+
+        temp = temp->next;
+    }
+    return NULL; // 不属于内核的区域
+}
+listNode *getUserfulNodeBySzie(memoryManager *m, uint32_t size)
+{
+    listNode *temp;
+    if (size <= 16)
+    {
+        temp = searchUsefulNode(&m->byte_16_list);
+    }
+    else if (size <= 32)
+    {
+        temp = searchUsefulNode(&m->byte_32_list);
+    }
+    else if (size < 64)
+    {
+        temp = searchUsefulNode(&m->byte_32_list);
+    }
+    else if (size <= 128)
+    {
+        temp = searchUsefulNode(&m->byte_128_list);
+    }
+    else if (size <= 256)
+    {
+        temp = searchUsefulNode(&m->byte_256_list);
+    }
+    else if (size <= 512)
+    {
+        temp = searchUsefulNode(&m->byte_512_list);
+    }
+    else if (size <= 1024)
+    {
+        temp = searchUsefulNode(&m->byte_1024_list);
+    }
+}
+void *sys_malloc(memoryManager *m, uint32_t size)
+{
+
+    if (size > 1024 && size <= 4096)
+    {
+        return mallocPage_k(&market, &size);
+    }
+    else if (size > 4096)
+    {
+        uint32_t page = size % 4096 == 0 ? size / 4096 : size / 4096 + 1;
+        return mallocMultpage_k(&market, page);
+    }
+
+    listNode *temp;
+    temp = getUserfulNodeBySzie(m, size);
+    if (temp == NULL)
+    {
+        /* code */
+    }
 }

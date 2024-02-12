@@ -6,6 +6,8 @@
 
 #define MAX_FILE_NAME_LEN 16
 #define SUPERBLOCKMAGIC 2000626
+#define OPENINODEPAGESIZE 117  // 100扇区
+#define OPENINODESIZE 7 * 1006 // 整齐一点,一个扇区大概放7个inode
 // 数据结构在《操作系统真相还原》一书的基础上修改
 
 /* 文件类型 */
@@ -20,7 +22,7 @@ enum file_types
 
 typedef struct
 {
-    uint32_t i_no; // inode编号
+    uint32_t i_no; // inode编号,
 
     /* 当此inode是文件时,i_size是指文件大小,
     若此inode是目录,i_size是指该目录下所有目录项大小之和*/

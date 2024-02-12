@@ -22,10 +22,10 @@ char cirEnqueue(cirQueue *queue, void *elem);
 char cirDequeue(cirQueue *queue, void **elem);
 
 // 查看队头元素,返回队头元素的data域,请确保队列长度不为空!
-char cirFront(cirQueue *queue, void *elem);
+char cirFront(cirQueue *queue, void **elem);
 
 // 查看队尾元素
-char cirRear(cirQueue *queue, void *elem);
+char cirRear(cirQueue *queue, void **elem);
 
 // 判空操作
 char cirIsEmpty(cirQueue *queue);

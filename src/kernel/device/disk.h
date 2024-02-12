@@ -5,6 +5,7 @@
 #include "../include/bitmap.h"
 #include "../include/linkedList.h"
 #include "../include/process.h"
+#include "../include/cirQueue.h"
 
 #define DISKCOUNTADDR 0xc0000475
 #define DISKMAXLENGTH 8 // 将磁盘抽象成设备对象,最多支持8块磁盘对象,应该也不会超过这个数量
@@ -47,9 +48,9 @@ typedef struct partition
     uint32_t sec_cnt;     // 扇区数
     struct disk *my_disk; // 分区所属的硬盘
     // linkedList part_tag;     // 用于队列中的标记
-    char name[8];           // 分区名称
-    super_block sb;  // 本分区的超级块
-    linkedList open_inodes; // 本分区打开的i结点队列
+    char name[8];       // 分区名称
+    super_block sb;     // 本分区的超级块
+    cirQueue openInode; // 打开节点缓冲区,使用一个固定环形队列实现,大小为6000个inode(100个页)
 } partition;
 
 /* 硬盘结构 */

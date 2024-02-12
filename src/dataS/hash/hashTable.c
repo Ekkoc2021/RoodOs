@@ -216,11 +216,12 @@ hashNode *popKey(hashTable *h, void *key)
     // 拿到对应linkedList
     linkedList *list;
     getElem(&(h->table), &list, i);
-    hashNode *d = deleteIn(list, key, 0);
+    hashNode *d = deleteIn(list, 0);
     if (d == &(list->head))
     {
         return 0x0;
     }
     h->length--;
+    key = d->data;
     return d;
 }
