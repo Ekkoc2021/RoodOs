@@ -47,10 +47,10 @@ typedef struct partition
     uint32_t start_lba;   // 起始扇区
     uint32_t sec_cnt;     // 扇区数
     struct disk *my_disk; // 分区所属的硬盘
-    // linkedList part_tag;     // 用于队列中的标记
-    char name[8];       // 分区名称
-    super_block sb;     // 本分区的超级块
-    cirQueue openInode; // 打开节点缓冲区,使用一个固定环形队列实现,大小为6000个inode(100个页)
+    char name[8];         // 分区名称
+    super_block sb;       // 本分区的超级块
+    cirQueue openInode;   // 打开节点缓冲区,使用一个固定环形队列实现,大小为6000个inode(100个页)
+    listNode tag;         // 挂载分区标记
 } partition;
 
 /* 硬盘结构 */

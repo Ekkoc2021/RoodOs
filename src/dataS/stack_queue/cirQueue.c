@@ -158,7 +158,7 @@ char cirDequeue(cirQueue *queue, void **elem)
 }
 
 // 查看队头元素
-char cirFront(cirQueue *queue, void *elem)
+char cirFront(cirQueue *queue, void **elem)
 {
     if (cirIsEmpty(queue))
     {
@@ -170,7 +170,7 @@ char cirFront(cirQueue *queue, void *elem)
 }
 
 // 查看队尾元素
-char cirRear(cirQueue *queue, void *elem)
+char cirRear(cirQueue *queue, void **elem)
 {
     if (cirIsEmpty(queue))
     {

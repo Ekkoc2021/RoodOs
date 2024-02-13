@@ -6,8 +6,9 @@
 
 #define MAX_FILE_NAME_LEN 16
 #define SUPERBLOCKMAGIC 2000626
-#define OPENINODEPAGESIZE 117  // 100扇区
-#define OPENINODESIZE 7 * 1006 // 整齐一点,一个扇区大概放7个inode
+#define OPENINODEPAGESIZE 117      // 100扇区
+#define OPENINODESIZE 7 * 1006 + 1 // 整齐一点,一个扇区大概放7个inode,多一个用于循环队列
+
 // 数据结构在《操作系统真相还原》一书的基础上修改
 
 /* 文件类型 */
@@ -52,4 +53,8 @@ typedef struct dir_entry
     enum file_types f_type;           // 文件类型
 } dir_entry;                          // 24字节 一个扇区21个目录项
 
+typedef struct
+{
+    linkedList amount_partions; // 已经挂载的分区
+} file_sys;
 #endif
