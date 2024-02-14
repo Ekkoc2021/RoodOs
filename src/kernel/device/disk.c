@@ -33,6 +33,9 @@
 /* 定义可读写的最大扇区数,调试用的 */
 #define max_lba ((80 * 1024 * 1024 / 512) - 1) // 只支持80MB硬盘
 
+partition *all_partition[PARTITIONSIZE]; // 所有分区表
+uint32_t partition_cnt;                  // 分区数量
+
 extern void initSem(uint16_t __value, int32_t *semId);
 extern bool sem_open(uint32_t semId);
 extern void semWait(int32_t semId);
@@ -352,7 +355,10 @@ static void partition_scan(struct disk *hd, uint32_t ext_lba)
                 sprintf_(hd->prim_parts[p_no].name, "%s%d", hd->name, p_no + 1);
                 ASSERT(p_no < 4); // 0,1,2,3
                 log("   %s start_lba:0x%p, sec_cnt:0x%p\n", hd->prim_parts[p_no].name, hd->prim_parts[p_no].start_lba, hd->prim_parts[p_no].sec_cnt);
+
+                all_partition[partition_cnt] = &(hd->prim_parts[p_no]);
                 p_no++;
+                partition_cnt++;
             }
             else
             {
@@ -361,7 +367,10 @@ static void partition_scan(struct disk *hd, uint32_t ext_lba)
                 hd->logic_parts[l_no].my_disk = hd;
                 // list_append(&partition_list, &hd->logic_parts[l_no].part_tag);
                 sprintf_(hd->logic_parts[l_no].name, "%s%d", hd->name, l_no + 5); // 逻辑分区数字是从5开始,主分区是1～4.
+
+                all_partition[partition_cnt] = &(hd->prim_parts[p_no]);
                 l_no++;
+                partition_cnt++;
                 if (l_no >= 8) // 只支持8个逻辑分区,避免数组越界
                     return;
             }
@@ -693,6 +702,7 @@ void intr_hd_handler(uint8_t irq_no)
 extern void startIDEInterrupt();
 void diskInit()
 {
+    partition_cnt = 0;
     // 初始化系统挂载的硬盘!
     ide_init();
     // 已经成功读取到系统相关的磁盘的信息

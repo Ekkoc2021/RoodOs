@@ -18,6 +18,7 @@ enum file_types
     FT_REGULAR,   // 普通文件
     FT_DIRECTORY, // 目录
     DEVICE,       // 设备
+    PARTITION,    // 挂载的分区
 };
 /* inode结构 */
 
