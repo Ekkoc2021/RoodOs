@@ -8,7 +8,7 @@
 // #define BITMAP_DEBUG
 #ifndef BITMAP_H2411
 #define BITMAP_H2411
-typedef unsigned int bMLengthType;
+typedef int bMLengthType;
 typedef unsigned int unint32;
 
 typedef struct

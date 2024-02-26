@@ -52,7 +52,7 @@ typedef struct partition
     char name[8];         // 分区名称
     super_block sb;       // 本分区的超级块
     cirQueue openInode;   // 打开节点缓冲区,使用一个固定环形队列实现,大小为6000个inode(100个页)
-    listNode tag;         // 挂载分区标记
+    bool isload;          // super_block是否已经加载
 } partition;
 
 /* 硬盘结构 */

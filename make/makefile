@@ -49,7 +49,7 @@ INCLUDE=-Iinclude # 搜索编译的头文件的目录
 
 # start : bootloader $(OUTPUT)system.bin sym $(OUTPUT)system.map
 
-start : $(OUTPUT)system.bin sym $(OUTPUT)system.map
+start : bootloader $(OUTPUT)system.bin sym $(OUTPUT)system.map
 
 kernel: $(OUTPUT)system.bin sym
 
@@ -110,7 +110,7 @@ kernelDep=$(OUTPUT)kernel.o $(OUTPUT)roodos.o \
 	$(OUTPUT)physicalMem.o $(OUTPUT)virtualMem.o $(OUTPUT)memory.o \
 	$(OUTPUT)semaphore.o \
 	$(OUTPUT)console.o $(OUTPUT)keyboard.o $(OUTPUT)device.o $(OUTPUT)tty.o $(OUTPUT)disk.o\
-	$(OUTPUT)fs.o \
+	$(OUTPUT)fs.o $(OUTPUT)partition.o $(OUTPUT)inode.o\
 	$(OUTPUT)kernel0.o \
 	$(OUTPUT)io.o
 
@@ -119,6 +119,12 @@ $(OUTPUT)roodos.o : $(KERNEL)/roodos.c
 
 $(OUTPUT)fs.o : $(KERNEL)/fs/fs.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)partition.o : $(KERNEL)/fs/partition.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)inode.o : $(KERNEL)/fs/inode.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG)
 
 $(OUTPUT)console.o : $(KERNEL)/device/console.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
