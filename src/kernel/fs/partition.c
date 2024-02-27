@@ -86,14 +86,13 @@ void load_super_block(partition *p)
         initInodeBuff(p); // 初始化buff
         load_block_bitmap(p);
         load_inode_bitmap(p);
+        p->isload = true;
     }
 }
 
 // 保存超级块,以及对应的bitmap
 void save_super_block(partition *p)
 {
-    save_block_bitmap(p);
-    save_inode_bitmap(p);
     write_partition(p, &p->sb, p->sb.part_lba_base, sizeof(super_block));
 }
 
@@ -143,5 +142,7 @@ void buildSuperBlock(partition *p, uint32_t inode_cnt)
         setBit(&super_b->block_bitmap, i);
     }
 
+    save_block_bitmap(p);
+    save_inode_bitmap(p);
     save_super_block(p);
 }

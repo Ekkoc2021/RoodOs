@@ -54,7 +54,7 @@ void save_7_inode(partition *p, inode *ino)
     }
 
     // 写入数据
-    write_partition(p, ino, sec, sizeof(ino) * 7);
+    write_partition(p, ino, sec, sizeof(inode) * 7);
 
     // 编号改回去
     for (uint32_t i = 0; i < 7; i++)
@@ -170,6 +170,7 @@ bool malloc_block(partition *p, inode *node, uint32_t sec_index)
 
             setBit(&(p->sb.block_bitmap), ffb);
             save_block_bitmap(p);
+            save_super_block(p);
             node->i_sectors[sec_index] = ffb + p->start_lba;
             // 保存inode
             save_inode(node->i_no);
@@ -189,7 +190,10 @@ bool malloc_block(partition *p, inode *node, uint32_t sec_index)
                 return false;
             }
             setBit(&(p->sb.block_bitmap), ffb);
-            save_block_bitmap(p);
+
+            // save_block_bitmap(p);
+            // save_super_block(p);
+
             node->i_sectors[11] = ffb + p->start_lba;
             for (uint16_t i = 0; i < 512; i++)
             {
@@ -202,7 +206,7 @@ bool malloc_block(partition *p, inode *node, uint32_t sec_index)
         }
 
         read_partition(p, temp_buf, node->i_sectors[11], 512);
-        if (temp_buf[sec_index - 11] == 0)
+        if (((uint32_t *)temp_buf)[sec_index - 11] == 0)
         {
             // 找到可设置位置
             int32_t ffb = find_fist_bit(&(p->sb.block_bitmap));
@@ -212,7 +216,8 @@ bool malloc_block(partition *p, inode *node, uint32_t sec_index)
             }
             setBit(&(p->sb.block_bitmap), ffb);
             save_block_bitmap(p);
-            temp_buf[sec_index - 11] = ffb + p->start_lba;
+            save_super_block(p);
+            ((uint32_t *)temp_buf)[sec_index - 11] = ffb + p->start_lba;
             // 写回
             write_partition(p, temp_buf, node->i_sectors[11], 512);
         }
@@ -234,6 +239,7 @@ void free_block(partition *p, inode *node, uint32_t sec_index)
             clearBit(&(p->sb.block_bitmap), node->i_sectors[sec_index] - p->start_lba);
             node->i_sectors[sec_index] = 0;
             save_block_bitmap(p);
+            save_super_block(p);
             // 保存inode
             save_inode(node->i_no);
         }
@@ -246,12 +252,13 @@ void free_block(partition *p, inode *node, uint32_t sec_index)
             return;
         }
         read_partition(p, temp_buf, node->i_sectors[11], 512);
-        if (temp_buf[sec_index - 11] != 0)
+        if (((uint32_t *)temp_buf)[sec_index - 11] != 0)
         {
             // 找到可设置位置
-            clearBit(&(p->sb.block_bitmap), temp_buf[sec_index - 11] - p->start_lba);
+            clearBit(&(p->sb.block_bitmap), ((uint32_t *)temp_buf)[sec_index - 11] - p->start_lba);
             save_block_bitmap(p);
-            temp_buf[sec_index - 11] = 0;
+            save_super_block(p);
+            ((uint32_t *)temp_buf)[sec_index - 11] = 0;
             // 写回
             write_partition(p, temp_buf, node->i_sectors[11], 512);
         }
@@ -301,7 +308,7 @@ void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
         }
 
         read_partition(p, temp_buf, node->i_sectors[11], 512);
-        if (temp_buf[sec_index - 11] == 0)
+        if (((uint32_t *)temp_buf)[sec_index - 11] == 0)
         {
             // 分配一个扇区
             if (!malloc_block(p, node, sec_index))
@@ -309,8 +316,9 @@ void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
                 // 磁盘容量不够了!
                 return false;
             }
+            read_partition(p, temp_buf, node->i_sectors[11], 512);
         }
-        write_partition(p, buff, temp_buf[sec_index - 11], 512);
+        write_partition(p, buff, ((uint32_t *)temp_buf)[sec_index - 11], 512);
         return true;
     }
 
@@ -360,7 +368,7 @@ void read_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
         }
 
         read_partition(p, temp_buf, node->i_sectors[11], 512);
-        if (temp_buf[sec_index - 11] == 0)
+        if (((uint32_t *)temp_buf)[sec_index - 11] == 0)
         {
             // 分配一个扇区
             if (!malloc_block(p, node, sec_index))
@@ -368,8 +376,9 @@ void read_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
                 // 磁盘容量不够了!
                 return false;
             }
+            read_partition(p, temp_buf, node->i_sectors[11], 512);
         }
-        read_partition(p, buff, temp_buf[sec_index - 11], 512);
+        read_partition(p, buff, ((uint32_t *)temp_buf)[sec_index - 11], 512);
         return true;
     }
 
@@ -387,6 +396,7 @@ inode *malloc_inode(partition *p)
     }
     setBit(&(p->sb.inode_bitmap), ffb);
     save_inode_bitmap(p);
+    save_super_block(p);
     // 初始化一个inode
     inode *i = load_inode_by_inode_no(ffb + p->sb.inode_global_start_index);
     if (i == NULL)
@@ -415,5 +425,17 @@ void free_inode(uint32_t inode_no)
     }
 
     clearBit(&(p->sb.inode_bitmap), inode_no - p->sb.inode_global_start_index);
+    save_inode_bitmap(p);
+    save_super_block(p);
     node->i_no = p->sb.inode_global_start_index + p->sb.inode_cnt;
+}
+
+// 释放所有一个inode节点所有资源
+void free_all_resource_inode(uint32_t inode_no)
+{
+}
+
+// 释放溢出资源
+void free_overflow_resources_inode(uint32_t inode_no)
+{
 }

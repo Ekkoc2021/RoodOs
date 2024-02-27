@@ -23,7 +23,6 @@ bool identify_super_b(partition *p)
     if (!p->isload)
     {
         load_super_block(p);
-        p->isload = true;
     }
 
     if (super_b->magic == SUPERBLOCKMAGIC)
@@ -72,19 +71,74 @@ bool register_file_type(file_type *type)
     fs.file_type_length++;
     return true;
 }
+
+// inode.c的函数测试
+extern partition *get_partition_by_inode_no(uint32_t inode_no);
+extern inode *searchInodeInBuff(partition *p, uint32_t inode_no);
+extern void save_7_inode(partition *p, inode *ino);
+extern inode *load_inode_by_inode_no(uint32_t inode_no);
+extern void save_inode(uint32_t inode_no);
+extern bool malloc_block(partition *p, inode *node, uint32_t sec_index);
+extern void free_block(partition *p, inode *node, uint32_t sec_index);
+extern void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
+extern void read_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
+extern inode *malloc_inode(partition *p);
+extern void free_inode(uint32_t inode_no);
+
+void function_test()
+{
+
+    // 测试往0扇区写入数据
+    char buff[512];
+    char buff2[512];
+    partition *p = get_partition_by_inode_no(0);
+    inode *nod = load_inode_by_inode_no(0);
+    inode *ia = malloc_inode(p);
+    for (uint32_t i = 0; i < 18; i++)
+    {
+
+        for (uint32_t j = 0; j < 512; j++)
+        {
+            buff[j] = i + 1;
+        }
+        if (i == 11)
+        {
+            log("11\n");
+        }
+
+        write_inode(ia->i_no, buff, i);
+        read_inode(ia->i_no, buff2, i);
+    }
+
+    for (uint32_t i = 0; i < 18; i++)
+    {
+        free_block(p, nod, i);
+    }
+
+    for (uint32_t i = 0; i < 18; i++)
+    {
+        inode *ia2 = malloc_inode(p);
+        free_inode(ia2->i_no);
+    }
+    free_inode(ia->i_no);
+}
+
 // 维护一个
 void fs_init()
 {
     log("fs_init %d", sizeof(dir_entry));
+
     // 解析分区数据,读取分区根目录,查看挂载详情,至少要有分区
     // 检查分区情况
-    // 识别第一个分区的超级块
+    // 识别第一个分区的超级块是否有效!
+    bool firstInit = false;
     if (!identify_super_b(all_partition[0]))
     {
         // 未成功识别到,构建分区
         buildSuperBlock(all_partition[0], all_partition[0]->sec_cnt / 100 * 5);
         all_partition[0]->sb.inode_global_start_index = 0;
         save_super_block(all_partition[0]);
+        firstInit = true;
     }
 
     //---初始化分区挂载情况
@@ -160,7 +214,22 @@ void fs_init()
         p1++;
     }
 amount_partition_init_done:
-    partition *temp2 = get_partition_by_inode_no(100);
+    // 如果是第一次初始化
+    if (firstInit)
+    {
+        // 初始化第一个分区表的inode
+        inode *nod = load_inode_by_inode_no(0);
+        nod->i_no = 0;
+        nod->i_open_cnts = 0;
+        for (uint32_t i = 0; i < INODE_SECTORS_SIZE; i++)
+        {
+            nod->i_sectors[i] = 0;
+        }
+        nod->i_size = 2;
+        save_inode(0);
+    }
 
+    // test
+    function_test();
     log("%d", sizeof(inode));
 }
