@@ -84,6 +84,9 @@ extern void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
 extern void read_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
 extern inode *malloc_inode(partition *p);
 extern void free_inode(uint32_t inode_no);
+extern bool return_sector(partition *p, uint32_t sec);
+extern void free_all_resource_inode(uint32_t inode_no);
+extern void free_overflow_resources_inode(uint32_t inode_no);
 
 void function_test()
 {
@@ -110,11 +113,11 @@ void function_test()
         read_inode(ia->i_no, buff2, i);
     }
 
-    for (uint32_t i = 0; i < 18; i++)
-    {
-        free_block(p, nod, i);
-    }
-
+    // for (uint32_t i = 0; i < 18; i++)
+    // {
+    //     free_block(p, ia, i);
+    // }
+    free_all_resource_inode(ia->i_no);
     for (uint32_t i = 0; i < 18; i++)
     {
         inode *ia2 = malloc_inode(p);
@@ -132,7 +135,7 @@ void fs_init()
     // 检查分区情况
     // 识别第一个分区的超级块是否有效!
     bool firstInit = false;
-    if (!identify_super_b(all_partition[0]))
+    if (identify_super_b(all_partition[0]))
     {
         // 未成功识别到,构建分区
         buildSuperBlock(all_partition[0], all_partition[0]->sec_cnt / 100 * 5);

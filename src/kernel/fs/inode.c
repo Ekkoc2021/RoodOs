@@ -430,12 +430,63 @@ void free_inode(uint32_t inode_no)
     node->i_no = p->sb.inode_global_start_index + p->sb.inode_cnt;
 }
 
-// 释放所有一个inode节点所有资源
-void free_all_resource_inode(uint32_t inode_no)
+// 传入扇区索引(整个磁盘内的位置),分区
+// 释放该扇区
+bool return_sector(partition *p, uint32_t sec)
 {
+    if (sec > p->start_lba && sec - p->start_lba < p->sb.sec_cnt)
+    {
+        clearBit(&(p->sb.block_bitmap), sec - p->start_lba < p->sb.sec_cnt);
+        // 持久化资源
+        save_block_bitmap(p);
+        save_super_block(p);
+        return true;
+    }
+    return false;
 }
 
-// 释放溢出资源
-void free_overflow_resources_inode(uint32_t inode_no)
+// 释放一个inode节点得到磁盘资源,包括释放inode本身占用
+void free_all_resource_inode(uint32_t inode_no)
 {
+    partition *p = get_partition_by_inode_no(inode_no);
+    inode *node = load_inode_by_inode_no(inode_no);
+
+    for (uint32_t i = 0; i < INODE_SECTORS_SIZE; i++)
+    {
+        if (node->i_sectors[i] != 0)
+        {
+            // 释放一级索引
+            if (i < 11)
+            {
+                return_sector(p, node->i_sectors[i]);
+            }
+            else if (i == 11)
+            {
+                // 释放二级索引
+                uint32_t buff[128];
+                read_partition(p, buff, node->i_sectors[11], 512);
+                for (uint32_t j = 0; j < 128; j++)
+                {
+                    // 分配inode是连续的
+                    if (buff[j] != 0)
+                    {
+                        return_sector(p, buff[j]);
+                        buff[j] = 0;
+                    }
+                    else
+                    {
+                        return_sector(p, node->i_sectors[11]);
+                        node->i_sectors[11] = 0;
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            // 分配是连续的
+            free_inode(node->i_no);
+            return;
+        }
+    }
 }
