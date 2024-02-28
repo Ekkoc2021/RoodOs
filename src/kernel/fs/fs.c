@@ -73,21 +73,6 @@ bool register_file_type(file_type *type)
 }
 
 // inode.c的函数测试
-extern partition *get_partition_by_inode_no(uint32_t inode_no);
-extern inode *searchInodeInBuff(partition *p, uint32_t inode_no);
-extern void save_7_inode(partition *p, inode *ino);
-extern inode *load_inode_by_inode_no(uint32_t inode_no);
-extern void save_inode(uint32_t inode_no);
-extern bool malloc_block(partition *p, inode *node, uint32_t sec_index);
-extern void free_block(partition *p, inode *node, uint32_t sec_index);
-extern void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
-extern void read_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
-extern inode *malloc_inode(partition *p);
-extern void free_inode(uint32_t inode_no);
-extern bool return_sector(partition *p, uint32_t sec);
-extern void free_all_resource_inode(uint32_t inode_no);
-extern void free_overflow_resources_inode(uint32_t inode_no);
-
 void function_test()
 {
 
@@ -233,6 +218,7 @@ amount_partition_init_done:
     }
 
     // test
-    function_test();
+    // function_test();
+    init_direcory();
     log("%d", sizeof(inode));
 }

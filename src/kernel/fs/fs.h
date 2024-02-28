@@ -86,6 +86,17 @@ typedef struct
     uint32_t file_type_length;
 } file_sys;
 
+extern bool identify_super_b(partition *p);
+extern uint32_t open_file(uint32_t ino);
+extern int32_t read_file(uint32_t ino, uint32_t addr, char *buf, uint32_t size);
+extern int32_t write_file(uint32_t ino, uint32_t addr, char *buf, uint32_t size);
+extern uint32_t control_file(uint32_t ino, uint32_t cmd, int32_t *args, uint32_t n);
+extern void info_file(uint32_t ino, char buff[DEVINFOSIZE]);
+extern void close_file(uint32_t ino);
+extern bool register_file_type(file_type *type);
+extern void function_test();
+extern void fs_init();
+
 // partition.c
 extern void read_partition(partition *p, char *buff, uint32_t sec, uint32_t size);
 extern void write_partition(partition *p, char *buff, uint32_t sec, uint32_t size);
@@ -100,4 +111,20 @@ extern void buildSuperBlock(partition *p, uint32_t inode_cnt);
 
 // inode.c
 extern partition *get_partition_by_inode_no(uint32_t inode_no);
+extern inode *searchInodeInBuff(partition *p, uint32_t inode_no);
+extern void save_7_inode(partition *p, inode *ino);
+extern inode *load_inode_by_inode_no(uint32_t inode_no);
+extern void save_inode(uint32_t inode_no);
+extern bool malloc_block(partition *p, inode *node, uint32_t sec_index);
+extern void free_block(partition *p, inode *node, uint32_t sec_index);
+extern void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
+extern void read_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
+extern inode *malloc_inode(partition *p);
+extern void free_inode(uint32_t inode_no);
+extern bool return_sector(partition *p, uint32_t sec);
+extern void free_all_resource_inode(uint32_t inode_no);
+extern void free_overflow_resources_inode(uint32_t inode_no);
+
+// directory.c
+extern void init_direcory();
 #endif

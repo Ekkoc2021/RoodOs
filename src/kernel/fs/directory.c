@@ -25,15 +25,16 @@ void close_dir(file *f)
 {
 }
 
-file_type dir = {
+file_type dir_type = {
     .type = FT_DIRECTORY,
     .open = open_dir,
     .read = read_dir,
     .write = write_dir,
     .control = control_dir,
     .info = info_dir,
+    .close = close_dir,
 };
 void init_direcory()
 {
-    dir.type = FT_DIRECTORY;
+    register_file_type(&dir_type);
 }
