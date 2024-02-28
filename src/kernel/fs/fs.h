@@ -58,21 +58,23 @@ typedef struct dir_entry
 
 typedef struct file
 {
-    partition *p;
-    inode *inode;
-    uint32_t mode; // 1读,2写,3读写
+    uint32_t size;
+    uint32_t inode_no;
+    uint32_t file_type;
+    uint32_t index; // 下次操作的位置
+    uint32_t mode;  // 1读,10写,0b11读写,0b100追加
 } file;
 
 // 文件类型的数据结构,包含了不同文件类型用到的接口
 typedef struct file_type
 {
     enum file_types type;
-    uint32_t (*open)(file *f);
-    int32_t (*read)(file *f, uint32_t addr, char *buf, uint32_t size);
-    int32_t (*write)(file *f, uint32_t addr, char *buf, uint32_t size);
-    uint32_t (*control)(file *f, uint32_t cmd, int32_t *args, uint32_t n);
-    void (*info)(file *f, char buff[DEVINFOSIZE]); // 返回设备文件信息
-    void (*close)(file *f);
+    inode *(*open)(uint32_t inode_no, uint32_t mode);
+    int32_t (*read)(uint32_t inode_no, uint32_t addr, char *buf, uint32_t size);
+    int32_t (*write)(uint32_t inode_no, uint32_t addr, char *buf, uint32_t size);
+    uint32_t (*control)(uint32_t inode_no, uint32_t cmd, int32_t *args, uint32_t n);
+    void (*info)(uint32_t inode_no, char buff[DEVINFOSIZE]); // 返回设备文件信息
+    void (*close)(uint32_t inode_no);
 } file_type;
 
 typedef struct
@@ -87,12 +89,12 @@ typedef struct
 } file_sys;
 
 extern bool identify_super_b(partition *p);
-extern uint32_t open_file(uint32_t ino);
-extern int32_t read_file(uint32_t ino, uint32_t addr, char *buf, uint32_t size);
-extern int32_t write_file(uint32_t ino, uint32_t addr, char *buf, uint32_t size);
-extern uint32_t control_file(uint32_t ino, uint32_t cmd, int32_t *args, uint32_t n);
-extern void info_file(uint32_t ino, char buff[DEVINFOSIZE]);
-extern void close_file(uint32_t ino);
+extern bool open_file(uint32_t ino, enum file_types ft, uint32_t mode, file *f);
+extern int32_t read_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size);
+extern int32_t write_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size, uint32_t mode);
+extern uint32_t control_file(uint32_t ino, enum file_types ft, uint32_t cmd, int32_t *args, uint32_t n);
+extern void info_file(uint32_t ino, enum file_types ft, char buff[DEVINFOSIZE]);
+extern void close_file(uint32_t ino, enum file_types ft);
 extern bool register_file_type(file_type *type);
 extern void function_test();
 extern void fs_init();
@@ -117,8 +119,8 @@ extern inode *load_inode_by_inode_no(uint32_t inode_no);
 extern void save_inode(uint32_t inode_no);
 extern bool malloc_block(partition *p, inode *node, uint32_t sec_index);
 extern void free_block(partition *p, inode *node, uint32_t sec_index);
-extern void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
-extern void read_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
+extern uint32_t write_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
+extern uint32_t read_inode(uint32_t inode_no, char *buff, uint32_t sec_index);
 extern inode *malloc_inode(partition *p);
 extern void free_inode(uint32_t inode_no);
 extern bool return_sector(partition *p, uint32_t sec);

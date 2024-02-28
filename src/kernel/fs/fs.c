@@ -32,30 +32,91 @@ bool identify_super_b(partition *p)
     return false;
 }
 
-uint32_t open_file(uint32_t ino)
-{
-    // 通过ino查询到对应的partition
+// 使用支持文件描述符的接口通过文件描述符中文件信息读写文件,
+// 追加数据,读写等模式的支持也在使用文件描述中给出
 
-    // 构造file实体
+bool open_file(uint32_t ino, enum file_types ft, uint32_t mode, file *f)
+{
+    // 确定打开的模式,然后返回
+    for (uint32_t i = 0; i < fs.file_type_length; i++)
+    {
+        if (fs.ft[i]->type == ft)
+        {
+            inode *node = fs.ft[i]->open(ino, mode);
+            if (node != NULL)
+            {
+                f->file_type = ft;
+                f->index = 0;
+                f->inode_no = node->i_no;
+                f->mode = mode;
+                f->size = node->i_size;
+                // 考虑打开模式
+            }
+            return true;
+        }
+    }
+    return false;
+}
 
-    // 检查ino的类型
-    // todo 当前那个文件正在写,加锁?先不管!
-}
-int32_t read_file(uint32_t ino, uint32_t addr, char *buf, uint32_t size)
+// size是缓冲区大小,512字节为单位
+int32_t read_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size)
 {
-    // 通过file_name解析到名称
+    for (uint32_t i = 0; i < fs.file_type_length; i++)
+    {
+        if (fs.ft[i]->type == ft)
+        {
+            return fs.ft[i]->read(ino, addr, buf, size);
+        }
+    }
+    return 0;
 }
-int32_t write_file(uint32_t ino, uint32_t addr, char *buf, uint32_t size)
+
+int32_t write_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size, uint32_t mode)
 {
+    for (uint32_t i = 0; i < fs.file_type_length; i++)
+    {
+        if (fs.ft[i]->type == ft)
+        {
+            return fs.ft[i]->write(ino, addr, buf, size);
+        }
+    }
+    return 0;
 }
-uint32_t control_file(uint32_t ino, uint32_t cmd, int32_t *args, uint32_t n)
+
+uint32_t control_file(uint32_t ino, enum file_types ft, uint32_t cmd, int32_t *args, uint32_t n)
 {
+    for (uint32_t i = 0; i < fs.file_type_length; i++)
+    {
+        if (fs.ft[i]->type == ft)
+        {
+            return fs.ft[i]->control(ino, cmd, args, n);
+        }
+    }
+    return 0;
 }
-void info_file(uint32_t ino, char buff[DEVINFOSIZE])
+
+void info_file(uint32_t ino, enum file_types ft, char buff[DEVINFOSIZE])
 {
+    for (uint32_t i = 0; i < fs.file_type_length; i++)
+    {
+        if (fs.ft[i]->type == ft)
+        {
+            fs.ft[i]->info(ino, buff);
+            return;
+        }
+    }
 } // 返回设备文件信息
-void close_file(uint32_t ino)
+
+void close_file(uint32_t ino, enum file_types ft)
 {
+    for (uint32_t i = 0; i < fs.file_type_length; i++)
+    {
+        if (fs.ft[i]->type == ft)
+        {
+            fs.ft[i]->close(ino);
+            return;
+        }
+    }
 }
 
 // 往文件系统内注册文件类型

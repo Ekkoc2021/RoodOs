@@ -266,14 +266,14 @@ void free_block(partition *p, inode *node, uint32_t sec_index)
 }
 
 // 往inode对应的sector中写入数据
-void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
+uint32_t write_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
 {
     // 将编号转为分区
     partition *p = get_partition_by_inode_no(inode_no);
     inode *node = load_inode_by_inode_no(inode_no);
     if (node == NULL)
     {
-        return;
+        return 0;
     }
 
     // 判断读取位置
@@ -288,11 +288,11 @@ void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
             if (!malloc_block(p, node, sec_index))
             {
                 // 磁盘容量不够了!
-                return false;
+                return 0;
             }
         }
         write_partition(p, buff, node->i_sectors[sec_index], 512);
-        return true;
+        return 512;
     }
     else if (sec_index < (11 + 128))
     {
@@ -303,7 +303,7 @@ void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
             if (!malloc_block(p, node, 11))
             {
                 // 磁盘容量不够了!
-                return false;
+                return 0;
             }
         }
 
@@ -314,26 +314,26 @@ void write_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
             if (!malloc_block(p, node, sec_index))
             {
                 // 磁盘容量不够了!
-                return false;
+                return 0;
             }
             read_partition(p, temp_buf, node->i_sectors[11], 512);
         }
         write_partition(p, buff, ((uint32_t *)temp_buf)[sec_index - 11], 512);
-        return true;
+        return 512;
     }
 
-    return false;
+    return 0;
 }
 
 // 往inode中sector读取数据
-void read_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
+uint32_t read_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
 {
     // 将编号转为分区
     partition *p = get_partition_by_inode_no(inode_no);
     inode *node = load_inode_by_inode_no(inode_no);
     if (node == NULL)
     {
-        return;
+        return 0;
     }
 
     // 判断读取位置
@@ -344,45 +344,29 @@ void read_inode(uint32_t inode_no, char *buff, uint32_t sec_index)
 
         if (node->i_sectors[sec_index] == 0)
         {
-            // 分配一个扇区
-            if (!malloc_block(p, node, sec_index))
-            {
-                // 磁盘容量不够了!
-                return false;
-            }
+            return 0;
         }
         read_partition(p, buff, node->i_sectors[sec_index], 512);
-        return true;
+        return 512;
     }
     else if (sec_index < (11 + 128))
     {
         // 二级
         if (node->i_sectors[11] == 0)
         {
-            // 分配一个扇区
-            if (!malloc_block(p, node, 11))
-            {
-                // 磁盘容量不够了!
-                return false;
-            }
+            return 0;
         }
 
         read_partition(p, temp_buf, node->i_sectors[11], 512);
         if (((uint32_t *)temp_buf)[sec_index - 11] == 0)
         {
-            // 分配一个扇区
-            if (!malloc_block(p, node, sec_index))
-            {
-                // 磁盘容量不够了!
-                return false;
-            }
-            read_partition(p, temp_buf, node->i_sectors[11], 512);
+            return 0;
         }
         read_partition(p, buff, ((uint32_t *)temp_buf)[sec_index - 11], 512);
-        return true;
+        return 512;
     }
 
-    return false;
+    return 0;
 }
 
 // 分配inode
