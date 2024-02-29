@@ -35,7 +35,7 @@ bool identify_super_b(partition *p)
 // 使用支持文件描述符的接口通过文件描述符中文件信息读写文件,
 // 追加数据,读写等模式的支持也在使用文件描述中给出
 
-bool open_file(uint32_t ino, enum file_types ft, uint32_t mode, file *f)
+bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode, file *f)
 {
     // 确定打开的模式,然后返回
     for (uint32_t i = 0; i < fs.file_type_length; i++)
@@ -59,7 +59,7 @@ bool open_file(uint32_t ino, enum file_types ft, uint32_t mode, file *f)
 }
 
 // size是缓冲区大小,512字节为单位
-int32_t read_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size)
+int32_t read_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size)
 {
     for (uint32_t i = 0; i < fs.file_type_length; i++)
     {
@@ -71,7 +71,7 @@ int32_t read_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, ui
     return 0;
 }
 
-int32_t write_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size, uint32_t mode)
+int32_t write_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size, uint32_t mode)
 {
     for (uint32_t i = 0; i < fs.file_type_length; i++)
     {
@@ -83,7 +83,7 @@ int32_t write_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, u
     return 0;
 }
 
-uint32_t control_file(uint32_t ino, enum file_types ft, uint32_t cmd, int32_t *args, uint32_t n)
+uint32_t control_fs(uint32_t ino, enum file_types ft, uint32_t cmd, int32_t *args, uint32_t n)
 {
     for (uint32_t i = 0; i < fs.file_type_length; i++)
     {
@@ -95,7 +95,7 @@ uint32_t control_file(uint32_t ino, enum file_types ft, uint32_t cmd, int32_t *a
     return 0;
 }
 
-void info_file(uint32_t ino, enum file_types ft, char buff[DEVINFOSIZE])
+void info_fs(uint32_t ino, enum file_types ft, char buff[DEVINFOSIZE])
 {
     for (uint32_t i = 0; i < fs.file_type_length; i++)
     {
@@ -107,7 +107,7 @@ void info_file(uint32_t ino, enum file_types ft, char buff[DEVINFOSIZE])
     }
 } // 返回设备文件信息
 
-void close_file(uint32_t ino, enum file_types ft)
+void close_fs(uint32_t ino, enum file_types ft)
 {
     for (uint32_t i = 0; i < fs.file_type_length; i++)
     {
@@ -131,6 +131,97 @@ bool register_file_type(file_type *type)
     fs.ft[fs.file_type_length] = type;
     fs.file_type_length++;
     return true;
+}
+
+//-------读取inode通用接口
+inode *open_file(uint32_t inode_no, uint32_t mode)
+{
+    // 打开当前inode,计数器加1,然后保存数据
+    inode *ino = load_inode_by_inode_no(inode_no);
+    // todo 当前那个文件正在写,加锁?先不管!
+    ino->i_open_cnts++;
+    return ino;
+}
+char data_buf[1024];
+int32_t read_file(uint32_t inode_no, uint32_t addr, char *buf, uint32_t size)
+{
+    int32_t read_size = 0;
+    while (size > 0)
+    {
+        if (size >= 512)
+        {
+            if (read_inode(inode_no, buf, addr) == 0)
+            {
+
+                return read_size;
+            }
+            size -= 512;
+            read_size += 512;
+            buf += 512;
+            addr++;
+        }
+        else
+        {
+            if (read_inode(inode_no, data_buf, addr) == 0)
+            {
+
+                return read_size;
+            }
+            memcpy_(buf, data_buf, size);
+            read_size += size;
+            return read_size;
+        }
+    }
+    return read_size;
+}
+
+int32_t write_file(uint32_t inode_no, uint32_t addr, char *buf, uint32_t size)
+{
+    int32_t write_size = 0;
+    while (size > 0)
+    {
+        if (size >= 512)
+        {
+            if (write_inode(inode_no, buf, addr) == 0)
+            {
+
+                return write_size;
+            }
+            size -= 512;
+            write_size += 512;
+            buf += 512;
+            addr++;
+        }
+        else
+        {
+            memcpy_(data_buf, buf, size);
+            if (write_inode(inode_no, data_buf, addr) == 0)
+            {
+
+                return write_size;
+            }
+
+            write_size += size;
+            return write_size;
+        }
+    }
+    return write_size;
+}
+
+uint32_t control_file(uint32_t inode_no, uint32_t cmd, int32_t *args, uint32_t n)
+{
+}
+
+void info_file(uint32_t inode_no, char buff[DEVINFOSIZE])
+{
+}
+
+void close_file(uint32_t inode_no)
+{
+    // 打开当前inode,计数器加1,然后保存数据
+    inode *ino = load_inode_by_inode_no(inode_no);
+    ino->i_open_cnts--;
+    save_inode(inode_no);
 }
 
 // inode.c的函数测试
@@ -181,7 +272,7 @@ void fs_init()
     // 检查分区情况
     // 识别第一个分区的超级块是否有效!
     bool firstInit = false;
-    if (identify_super_b(all_partition[0]))
+    if (!identify_super_b(all_partition[0]))
     {
         // 未成功识别到,构建分区
         buildSuperBlock(all_partition[0], all_partition[0]->sec_cnt / 100 * 5);
@@ -274,8 +365,8 @@ amount_partition_init_done:
         {
             nod->i_sectors[i] = 0;
         }
-        nod->i_size = 2;
-        save_inode(0);
+        nod->i_size = 0;
+        init_new_dir(0, 0);
     }
 
     // test

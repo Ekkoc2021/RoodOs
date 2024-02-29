@@ -89,13 +89,19 @@ typedef struct
 } file_sys;
 
 extern bool identify_super_b(partition *p);
-extern bool open_file(uint32_t ino, enum file_types ft, uint32_t mode, file *f);
-extern int32_t read_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size);
-extern int32_t write_file(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size, uint32_t mode);
-extern uint32_t control_file(uint32_t ino, enum file_types ft, uint32_t cmd, int32_t *args, uint32_t n);
-extern void info_file(uint32_t ino, enum file_types ft, char buff[DEVINFOSIZE]);
-extern void close_file(uint32_t ino, enum file_types ft);
+extern bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode, file *f);
+extern int32_t read_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size);
+extern int32_t write_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size, uint32_t mode);
+extern uint32_t control_fs(uint32_t ino, enum file_types ft, uint32_t cmd, int32_t *args, uint32_t n);
+extern void info_fs(uint32_t ino, enum file_types ft, char buff[DEVINFOSIZE]);
+extern void close_fs(uint32_t ino, enum file_types ft);
 extern bool register_file_type(file_type *type);
+extern inode *open_file(uint32_t inode_no, uint32_t mode);
+extern int32_t read_file(uint32_t inode_no, uint32_t addr, char *buf, uint32_t size);
+extern int32_t write_file(uint32_t inode_no, uint32_t addr, char *buf, uint32_t size);
+extern uint32_t control_file(uint32_t inode_no, uint32_t cmd, int32_t *args, uint32_t n);
+extern void info_file(uint32_t inode_no, char buff[DEVINFOSIZE]);
+extern void close_file(uint32_t inode_no);
 extern void function_test();
 extern void fs_init();
 
@@ -128,5 +134,14 @@ extern void free_all_resource_inode(uint32_t inode_no);
 extern void free_overflow_resources_inode(uint32_t inode_no);
 
 // directory.c
+
+// 读取文件的通用的接口
+extern void copy_filename(char *destination, char *source);
+extern bool init_new_dir(uint32_t root_ino, uint32_t new_i_no);
+extern bool create_dir(uint32_t root_ino, char *dir_name);
+extern bool create_file(uint32_t root_ino, char *file_name);
+extern bool delete_file(uint32_t root_ino, char *file_name);
+extern bool search_file_by_name(uint32_t root_ino, char *file_name, dir_entry *dest);
 extern void init_direcory();
+
 #endif
