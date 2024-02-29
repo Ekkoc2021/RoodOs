@@ -110,7 +110,7 @@ kernelDep=$(OUTPUT)kernel.o $(OUTPUT)roodos.o \
 	$(OUTPUT)physicalMem.o $(OUTPUT)virtualMem.o $(OUTPUT)memory.o \
 	$(OUTPUT)semaphore.o \
 	$(OUTPUT)console.o $(OUTPUT)keyboard.o $(OUTPUT)device.o $(OUTPUT)tty.o $(OUTPUT)disk.o\
-	$(OUTPUT)fs.o $(OUTPUT)partition.o $(OUTPUT)inode.o $(OUTPUT)directory.o\
+	$(OUTPUT)fs.o $(OUTPUT)partition.o $(OUTPUT)inode.o $(OUTPUT)directory.o $(OUTPUT)regular.o\
 	$(OUTPUT)kernel0.o \
 	$(OUTPUT)io.o
 
@@ -121,6 +121,9 @@ $(OUTPUT)fs.o : $(KERNEL)/fs/fs.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
 $(OUTPUT)directory.o : $(KERNEL)/fs/directory.c
+	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
+
+$(OUTPUT)regular.o : $(KERNEL)/fs/regular.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
 $(OUTPUT)partition.o : $(KERNEL)/fs/partition.c
