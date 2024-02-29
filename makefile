@@ -43,8 +43,7 @@ lqemuDebug :
 	-rtc base=localtime \
 	-serial stdio \
 	-drive file=$(LINUXMASTERDISK) \
-	-drive file=make/bochsconfig/c.img,format=raw \
-	 -m 128M -S -s
+	-m 128M -S -s
 
 lqemu :
 	qemu-system-i386 \
@@ -53,10 +52,11 @@ lqemu :
 	-rtc base=localtime \
 	-serial stdio \
 	-drive file=$(LINUXMASTERDISK) \
-	-drive file=make/bochsconfig/c.img,format=raw \
 	-m 128M
 
+# -drive file=make/bochsconfig/c.img,format=raw 
 # linux下清除功能
+
 lclear:
 	rm -f build/*.bin
 	rm -f build/*.o
