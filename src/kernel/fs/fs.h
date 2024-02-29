@@ -89,7 +89,7 @@ typedef struct
 } file_sys;
 
 extern bool identify_super_b(partition *p);
-extern bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode, file *f);
+extern bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode);
 extern int32_t read_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size);
 extern int32_t write_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size, uint32_t mode);
 extern uint32_t control_fs(uint32_t ino, enum file_types ft, uint32_t cmd, int32_t *args, uint32_t n);
@@ -143,5 +143,9 @@ extern bool create_file(uint32_t root_ino, char *file_name);
 extern bool delete_file(uint32_t root_ino, char *file_name);
 extern bool search_file_by_name(uint32_t root_ino, char *file_name, dir_entry *dest);
 extern void init_direcory();
+
+//-- regular.c
+extern void init_regular();
+//--
 
 #endif

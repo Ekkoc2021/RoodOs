@@ -35,7 +35,7 @@ bool identify_super_b(partition *p)
 // 使用支持文件描述符的接口通过文件描述符中文件信息读写文件,
 // 追加数据,读写等模式的支持也在使用文件描述中给出
 
-bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode, file *f)
+bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode)
 {
     // 确定打开的模式,然后返回
     for (uint32_t i = 0; i < fs.file_type_length; i++)
@@ -43,15 +43,6 @@ bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode, file *f)
         if (fs.ft[i]->type == ft)
         {
             inode *node = fs.ft[i]->open(ino, mode);
-            if (node != NULL)
-            {
-                f->file_type = ft;
-                f->index = 0;
-                f->inode_no = node->i_no;
-                f->mode = mode;
-                f->size = node->i_size;
-                // 考虑打开模式
-            }
             return true;
         }
     }
@@ -372,5 +363,6 @@ amount_partition_init_done:
     // test
     // function_test();
     init_direcory();
+    init_regular();
     log("%d", sizeof(inode));
 }

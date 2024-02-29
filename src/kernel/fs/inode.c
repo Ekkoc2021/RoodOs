@@ -474,3 +474,92 @@ void free_all_resource_inode(uint32_t inode_no)
         }
     }
 }
+
+char data_buff[1024];
+uint32_t size_of_file(uint32_t inode_no)
+{
+    inode *node = load_inode_by_inode_no(inode_no);
+    if (node == NULL)
+    {
+        return 0;
+    }
+
+    uint32_t sec = 0;
+    for (uint32_t i = 0; i < 11; i++)
+    {
+        if (node->i_sectors[i] == 0)
+        {
+            return sec * 512;
+        }
+        sec++;
+    }
+    partition *p = get_partition_by_inode_no(inode_no);
+    // 第11扇区
+    if (node->i_sectors[11] != 0)
+    {
+        read_partition(p, data_buff, node->i_sectors[11], 512);
+
+        uint32_t *temp = data_buff;
+        for (uint32_t i = 0; i < 128; i++)
+        {
+            if (temp[i] == 0)
+            {
+                break;
+            }
+            sec++;
+        }
+    }
+    return sec * 512;
+}
+
+void update_inode_size(uint32_t inode_no)
+{
+    uint32_t size = size_of_file(inode_no);
+    inode *node = load_inode_by_inode_no(inode_no);
+    node->i_size = size;
+    save_inode(inode_no);
+}
+
+// 清空inode所有数据
+void clear_inode(uint32_t inode_no)
+{
+    partition *p = get_partition_by_inode_no(inode_no);
+    inode *node = load_inode_by_inode_no(inode_no);
+
+    for (uint32_t i = 0; i < INODE_SECTORS_SIZE; i++)
+    {
+        if (node->i_sectors[i] != 0)
+        {
+            // 释放一级索引
+            if (i < 11)
+            {
+                return_sector(p, node->i_sectors[i]);
+            }
+            else if (i == 11)
+            {
+                // 释放二级索引
+                uint32_t buff[128];
+                read_partition(p, buff, node->i_sectors[11], 512);
+                for (uint32_t j = 0; j < 128; j++)
+                {
+                    // 分配inode是连续的
+                    if (buff[j] != 0)
+                    {
+                        return_sector(p, buff[j]);
+                        buff[j] = 0;
+                    }
+                    else
+                    {
+                        return_sector(p, node->i_sectors[11]);
+                        node->i_sectors[11] = 0;
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            return;
+        }
+    }
+}
