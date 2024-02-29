@@ -142,6 +142,7 @@ extern bool create_dir(uint32_t root_ino, char *dir_name);
 extern bool create_file(uint32_t root_ino, char *file_name);
 extern bool delete_file(uint32_t root_ino, char *file_name);
 extern bool search_file_by_name(uint32_t root_ino, char *file_name, dir_entry *dest);
+extern bool search_file_by_path(char *file_path, uint32_t *ino, uint32_t *file_type);
 extern void init_direcory();
 
 //-- regular.c

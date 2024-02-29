@@ -18,5 +18,12 @@ file_type regular_type = {
 
 void init_regular()
 {
+    regular_type.type = FT_DIRECTORY;
+    regular_type.open = open_file;
+    regular_type.read = read_file; // 读接口用默认的
+    regular_type.write = write_file;
+    regular_type.control = control_file;
+    regular_type.info = info_file;
+    regular_type.close = close_file;
     register_file_type(&regular_type);
 }

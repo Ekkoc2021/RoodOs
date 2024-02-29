@@ -20,6 +20,12 @@ typedef enum
 
 typedef struct
 {
+    uint32_t ino;
+    uint32_t file_type;
+} file_descriptors;
+
+typedef struct
+{
     char name[128]; // 都是从磁盘加载,一般是磁盘名称
     uint16_t status;
     uint16_t weight;  // 默认值为 CREATE
@@ -40,6 +46,7 @@ typedef struct
     queueNode blockTag; // 阻塞队列链表节点标签
     RBNode node;
     bool justWakeUp; // 是否是刚刚重睡眠状态回到运行态
+    file_descriptors *file_descriptors;
 } PCB;
 
 typedef struct
@@ -55,4 +62,5 @@ typedef struct
 void initProcess(TSS *tss, GDT *gdt);
 void schedule();
 PCB *createPCB(char *name, uint32_t id, uint16_t weight);
+
 #endif

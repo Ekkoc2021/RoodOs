@@ -1,5 +1,6 @@
 
 #include "interrupt.h"
+#include "../include/fs.h"
 
 extern void initSem(uint16_t __value, int32_t *semId);
 extern bool sem_open(uint32_t semId);

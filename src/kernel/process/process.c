@@ -14,7 +14,6 @@
 processManager manager;
 extern memoryMarket market;
 extern kernel roodos;
-extern void intr_exit();
 extern PCB *theNextProcess();
 extern void insertWait(PCB *pcb);
 extern void schedule();
@@ -170,6 +169,16 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
         return 0;
     }
 
+    // 分配文件描述符
+    pcb->file_descriptors = mallocPage_k(&market, &pcb->file_descriptors);
+    if (pcb->file_descriptors == 0)
+    {
+        freePage(&market, pcbm);
+        freePage(&market, s0);
+        freePage(&market, pageVaddr);
+        return 0;
+    }
+
     pcb->pageVAddr = pageVaddr;
     pcb->pagePAddr = paddr;
     initUserPd((&market)->virMemPool, pageVaddr);
@@ -184,6 +193,7 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
     initLinkedList(&(pcb->children)); // 初始化孩子链表
     pcb->blockTag.data = pcb;
     add(&(manager.now->children), &(pcb->tag));
+
     return pcb;
 }
 
@@ -546,4 +556,5 @@ void initProcess(TSS *tss, GDT *gdt)
     // 初始化一个信号量 todo : 测试使用,可以删除
     initSem(1, &seId);
     //
+    // log("%d\n", sizeof(file_descriptors));
 }

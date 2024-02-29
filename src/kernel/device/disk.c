@@ -442,6 +442,7 @@ void ide_init()
             {
                 hd->my_channel = 0;
                 hd->dev_no = 0;
+                dev_no++;
             }
         }
         dev_no = 0;
@@ -709,5 +710,12 @@ void diskInit()
     ide_init();
     // 已经成功读取到系统相关的磁盘的信息
     // todo: 将磁盘抽象成设备对象注册到设备管理中
+    diskType.typeId = DISK;
+    diskType.open = open_disk;
+    diskType.read = read_disk_syn;
+    diskType.write = write_disk_syn;
+    diskType.control = control_disk;
+    diskType.info = info_disk;
+    diskType.close = close_disk;
     initDiskDevOBJ();
 }

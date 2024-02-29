@@ -275,10 +275,68 @@ bool search_file_by_name(uint32_t root_ino, char *file_name, dir_entry *dest)
     }
     return false;
 }
+// 系统调用接口
+bool search_file_by_path(char *file_path, uint32_t *ino, uint32_t *file_type)
+{
+    if (file_path[0] != '/')
+    {
+        return false;
+    }
+    file_path = file_path + 1;
+    *ino = 0;
+    dir_entry entry = {.f_type = FT_DIRECTORY, .i_no = 0};
 
+    // 解析file_path
+    char temp_file_name[MAX_FILE_NAME_LEN];
+
+    // 应该不会有超过4096个字符的路径
+    char j = 0; // temp_file_name的下标
+    for (uint32_t i = 0; i < 1024; i++)
+    {
+
+        if (file_path[i] == '/' || file_path[i] == '\0')
+        {
+            temp_file_name[j] = '\0';
+            if (!search_file_by_name(entry.i_no, temp_file_name, &entry))
+            {
+                // 没找到,直接退出即可
+                return false;
+            }
+            // 找到了
+            j = 0;
+            if (file_path[i] == '\0')
+            {
+                *ino = entry.i_no;
+                *file_type = entry.f_type;
+                return true;
+            }
+            continue; // 跳过当前循环
+        }
+
+        // 防止超过名称限制
+        if (j < 15)
+        {
+            temp_file_name[j] = file_path[i];
+        }
+        else
+        {
+            // 超过了,出错!
+            return false;
+        }
+        j++;
+    }
+    return false;
+}
 char test_buff[1024];
 void init_direcory()
 {
+    dir_type.type = FT_DIRECTORY;
+    dir_type.open = open_file;
+    dir_type.read = read_file;
+    dir_type.write = write_file;
+    dir_type.control = control_file;
+    dir_type.info = info_file;
+    dir_type.close = close_file;
     dir_entry *d_e = dir_buff + 512;
     // 初始化 dir_buf的空白区域
     for (uint32_t i = 0; i < 512 / 24; i++)
@@ -287,45 +345,49 @@ void init_direcory()
     }
 
     register_file_type(&dir_type);
-    d_e = test_buff;
-    log(" \n %d \n", sizeof(dir_entry));
+    // d_e = test_buff;
+    // log(" \n %d \n", sizeof(dir_entry));
+    // // create_dir(0, "test_file");
+    // inode *zero = load_inode_by_inode_no(0);
+    // // create_file(0, "new_test");
+    // read_file(0, 0, test_buff, 512);
+
+    // for (uint32_t i = 0; i < 512 / 24; i++)
+    // {
+    //     if (d_e[i].f_type != FT_UNKNOWN)
+    //     {
+    //         log("type:%d name:%s i_no:%d \n", d_e[i].f_type, d_e[i].filename, d_e[i].i_no);
+    //     }
+    // }
+    // create_file(0, "new_test222");
     // create_dir(0, "test_file");
-    inode *zero = load_inode_by_inode_no(0);
-    // create_file(0, "new_test");
-    read_file(0, 0, test_buff, 512);
+    // delete_file(0, "new_test");
+    // read_file(0, 0, test_buff, 512);
+    // for (uint32_t i = 0; i < 512 / 24; i++)
+    // {
+    //     if (d_e[i].f_type != FT_UNKNOWN)
+    //     {
+    //         log("type:%d name:%s i_no:%d \n", d_e[i].f_type, d_e[i].filename, d_e[i].i_no);
+    //     }
+    // }
 
-    for (uint32_t i = 0; i < 512 / 24; i++)
-    {
-        if (d_e[i].f_type != FT_UNKNOWN)
-        {
-            log("type:%d name:%s i_no:%d \n", d_e[i].f_type, d_e[i].filename, d_e[i].i_no);
-        }
-    }
-    create_file(0, "new_test222");
-    create_dir(0, "test_file");
-    delete_file(0, "new_test");
-    read_file(0, 0, test_buff, 512);
-    for (uint32_t i = 0; i < 512 / 24; i++)
-    {
-        if (d_e[i].f_type != FT_UNKNOWN)
-        {
-            log("type:%d name:%s i_no:%d \n", d_e[i].f_type, d_e[i].filename, d_e[i].i_no);
-        }
-    }
+    // log("test 2 \n");
+    // dir_entry search_de;
+    // search_file_by_name(0, "test_file", &search_de);
 
-    log("test 2 \n");
-    dir_entry search_de;
-    search_file_by_name(0, "test_file", &search_de);
+    // create_file(search_de.i_no, "hello");
+    // create_dir(search_de.i_no, "balbal");
+    // zero = load_inode_by_inode_no(search_de.i_no);
+    // read_file(search_de.i_no, 0, test_buff, 512);
+    // for (uint32_t i = 0; i < 512 / 24; i++)
+    // {
+    //     if (d_e[i].f_type != FT_UNKNOWN)
+    //     {
+    //         log("type:%d name:%s i_no:%d \n", d_e[i].f_type, d_e[i].filename, d_e[i].i_no);
+    //     }
+    // }
 
-    create_file(search_de.i_no, "hello");
-    create_dir(search_de.i_no, "balbal");
-    zero = load_inode_by_inode_no(search_de.i_no);
-    read_file(search_de.i_no, 0, test_buff, 512);
-    for (uint32_t i = 0; i < 512 / 24; i++)
-    {
-        if (d_e[i].f_type != FT_UNKNOWN)
-        {
-            log("type:%d name:%s i_no:%d \n", d_e[i].f_type, d_e[i].filename, d_e[i].i_no);
-        }
-    }
+    // uint32_t find_ino;
+    // uint32_t find_type;
+    // search_file_by_path("/test_file/hello", &find_ino, &find_type);
 }
