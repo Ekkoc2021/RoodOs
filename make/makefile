@@ -15,25 +15,28 @@ DATAS=src/dataS
 KERNEENTRY=0xc0011000  #c000_0000 内核入口地址,与boot加载位置和,loader跳转位置有关
 
 LDFLAGS=-Ttext $(KERNEENTRY) -m elf_i386 -static
-# CFLAGS=-m32 \
-# 	-O0 \
-# 	-static \
-# 	-fno-asynchronous-unwind-tables \
-# 	-fno-pic \
-# 	-fno-pie  \
-# 	-fno-stack-protector \
-# 	-fno-builtin \
-# 	-nostdlib \
-# 	-nodefaultlibs \
-# 	-nostdinc \
-# 	-nostartfiles  
 CFLAGS=-m32 \
+	-O0 \
+	-static \
+	-fno-asynchronous-unwind-tables \
 	-fno-pic \
 	-fno-pie  \
 	-fno-stack-protector \
 	-fno-builtin \
 	-nostdlib \
+	-nodefaultlibs \
 	-nostdinc \
+	-fno-rtti \
+	-Wl,–gc-sections
+
+# CFLAGS=-m32 \
+# 	-O2 \
+# 	-fno-pic \
+# 	-fno-pie  \
+# 	-fno-stack-protector \
+# 	-fno-builtin \
+# 	-nostdlib \
+# 	-nostdinc \
 # CFLAGS:= -m32 					# 32 位的程序
 # CFLAGS+= -march=pentium			# pentium 处理器
 # CFLAGS+= -fno-builtin			# 不需要 gcc 内置函数
@@ -113,6 +116,8 @@ kernelDep=$(OUTPUT)kernel.o $(OUTPUT)roodos.o \
 	$(OUTPUT)fs.o $(OUTPUT)partition.o $(OUTPUT)inode.o $(OUTPUT)directory.o $(OUTPUT)regular.o\
 	$(OUTPUT)kernel0.o \
 	$(OUTPUT)io.o
+
+
 
 $(OUTPUT)roodos.o : $(KERNEL)/roodos.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
