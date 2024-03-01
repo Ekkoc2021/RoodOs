@@ -172,19 +172,19 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
     }
 
     // 分配文件描述符
-    pcb->file_descriptors = mallocPage_k(&market, &pcb->file_descriptors);
-    if (pcb->file_descriptors == 0)
-    {
-        freePage(&market, pcbm);
-        freePage(&market, s0);
-        freePage(&market, pageVaddr);
-        return 0;
-    }
+    // pcb->file_descriptors = mallocPage_k(&market, &pcb->file_descriptors);
+    // if (pcb->file_descriptors == 0)
+    // {
+    //     freePage(&market, pcbm);
+    //     freePage(&market, s0);
+    //     freePage(&market, pageVaddr);
+    //     return 0;
+    // }
 
-    for (uint32_t i = 0; i < FD_MEM_SIZE; i++)
-    {
-        pcb->file_descriptors[i].file_type = 0;
-    }
+    // for (uint32_t i = 0; i < FD_MEM_SIZE / sizeof(file_descriptor); i++)
+    // {
+    //     pcb->file_descriptors[i].file_type = 0;
+    // }
 
     pcb->pageVAddr = pageVaddr;
     pcb->pagePAddr = paddr;
@@ -261,14 +261,8 @@ void function()
     devParam_ d;
     d.typeId = 1;
     d.deviceId = 0;
-    d.buf = buff1;
-    d.size = 1024;
-    d.addr = 400;
-    for (uint16_t i = 0; i < 1024; i++)
-    {
-        buff1[i] = 0;
-    }
-
+    d.buf = buff;
+    d.size = 128;
     asm volatile(
         "movl $60, %%eax\n"
         "movl %0, %%ebx\n"
@@ -276,100 +270,92 @@ void function()
         :
         : "r"(&d)
         : "%eax", "%ebx");
-    uint32_t flag = 0;
-    int32_t index = 0;
+
     while (1)
     {
-        if (manager.now->id == 2)
-        {
-
-            while (index >= 0)
-            {
-                asm volatile("movl $66, %%eax\n"
-                             "movl %0, %%ebx\n"
-                             "movl %1, %%ecx\n"
-                             "int $0x30\n"
-                             :
-                             : "r"(buff), "r"(&index)
-                             : "%eax", "%ebx", "%ecx");
-                asm volatile("movl $1, %%eax\n"
-                             "movl %0, %%ebx\n"
-                             "int $0x30\n"
-                             :
-                             : "r"(buff)
-                             : "%eax", "%ebx");
-            }
-        }
-
-        if (manager.now->id == 1)
-            if (manager.now->id == 1 && flag < 10)
-            {
-                asm volatile(
-                    "movl $65, %%eax\n"
-                    "movl %0, %%ebx\n"
-                    "int $0x30\n"
-                    :
-                    : "r"(&d)
-                    : "%eax", "%ebx");
-                buff1[0] = 'q';
-                asm volatile("movl $1, %%eax\n"
-                             "movl %0, %%ebx\n"
-                             "int $0x30\n"
-                             :
-                             : "r"(buff1)
-                             : "%eax", "%ebx");
-                // bool isClear = false;
-                // for (uint32_t i = 0; i < 1024; i++)
-                // {
-                //     if (buff1[i] != 0)
-                //     {
-                //         isClear = true;
-                //         break;
-                //     }
-                // }
-
-                // if (isClear)
-                // {
-                //     for (uint16_t i = 0; i < 1024; i++)
-                //     {
-                //         buff1[i] = 0;
-                //     }
-                //     asm volatile(
-                //         "movl $62, %%eax\n"
-                //         "movl %0, %%ebx\n"
-                //         "int $0x30\n"
-                //         :
-                //         : "r"(&d)
-                //         : "%eax", "%ebx");
-                // }
-                // if (1)
-                // {
-                //     flag++;
-                //     for (uint16_t i = 0; i < 1024; i++)
-                //     {
-                //         buff1[i] = 106;
-                //     }
-                //     asm volatile(
-                //         "movl $62, %%eax\n"
-                //         "movl %0, %%ebx\n"
-                //         "int $0x30\n"
-                //         :
-                //         : "r"(&d)
-                //         : "%eax", "%ebx");
-            }
-        d.addr += 2;
-        flag++;
+        // if内代码属于临界资源,不允许两个进程同时访问
+        // 也就是说保证两个进程输出的ticket编号永远不能一致
         // asm volatile(
-        //     "movl $53, %%eax\n"
+        //     "movl $52, %%eax\n"
         //     "movl %0, %%ebx\n"
         //     "int $0x30\n"
         //     :
         //     : "r"(seId)
         //     : "%eax", "%ebx");
-        /* code */
-        // }
+        // 信号量失效原因:进入阻塞后下次中断回来直接跳到下一条指令了,没有再重新执行semWait,这是不应该的!
+        // 解决方案一:wait后发生阻塞将eip的值修改为上一条指令:执行中断这条命令
+        // 解决方案二:简单包装一下内核态的semWait命令,加一个循环
+
+        if (manager.now->id != 1)
+        {
+
+            sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d   ticket = %d:", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1, ticket);
+            uint32_t len = strlen_(buff);
+            d.buf = buff + len;
+            d.size = 1;
+            asm volatile(
+                "movl $61, %%eax\n"
+                "movl %0, %%ebx\n"
+                "int $0x30\n"
+                :
+                : "r"(&d)
+                : "%eax", "%ebx");
+            buff[len + 1] = '\n';
+            buff[len + 2] = '\0';
+            d.buf = buff;
+            asm volatile(
+                "movl $62, %%eax\n"
+                "movl %0, %%ebx\n"
+                "int $0x30\n"
+                :
+                : "r"(&d)
+                : "%eax", "%ebx");
+            ticket--;
+
+            // asm volatile(
+            //     "movl $53, %%eax\n"
+            //     "movl %0, %%ebx\n"
+            //     "int $0x30\n"
+            //     :
+            //     : "r"(seId)
+            //     : "%eax", "%ebx");
+            /* code */
+        }
     }
 }
+
+// 进程结束
+void exit_pro()
+{
+    manager.ticks++;
+
+    PCB *p = manager.now;
+    p->runtime++;
+    // 判断是否要切换
+    if (p->runtime <= p->weight)
+    {
+        return;
+    }
+    p->vruntime++;
+    p->runtime = 0;
+    p->status = END;
+
+    // insertWait(p);
+    // 找到下一个进程
+    manager.now = theNextProcess();
+    manager.minVruntime = manager.now->vruntime;
+    manager.now->status = RUNNING;
+    // 修改tss 0特权级栈
+    update_tss_esp(Tss, manager.now->esp0);
+    // 切换页表
+    switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+
+    switchProcess();
+
+    // 回收进程
+    destroyPCB(p);
+}
+
 /*
     获取可用PID
     创建PCB:分配PCB内存,分配0特权级栈内存
@@ -490,6 +476,8 @@ void destroyPCB(PCB *pcb)
     freePage(&market, pcb->pageVAddr);
     // 回收esp0内存
     freePage(&market, pcb->esp0);
+    // 回收文件描述符表内存
+    freePage(&market, pcb->file_descriptors);
     // 回收pcb占用内存
     freePage(&market, pcb);
 }
@@ -525,6 +513,11 @@ void initFunction()
 
 void initProcess(TSS *tss, GDT *gdt)
 {
+    // 初始化task
+    for (uint16_t i = 1; i < TASKSIZE; i++)
+    {
+        manager.task[i] = 0;
+    }
 
     initTss(tss, gdt);
 

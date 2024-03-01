@@ -48,7 +48,7 @@ void insertWait(PCB *pcb)
 void switchProcess()
 {
 
-    // asm volatile("xchgw %bx, %bx");
+    asm volatile("xchgw %bx, %bx");
     // 切换栈
     asm volatile(
         "movl %0, %%eax\n "

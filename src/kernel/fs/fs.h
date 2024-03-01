@@ -88,6 +88,7 @@ typedef struct
     uint32_t file_type_length;
 } file_sys;
 
+//-- fs.c
 extern bool identify_super_b(partition *p);
 extern bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode);
 extern int32_t read_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size);
@@ -108,8 +109,10 @@ extern file_descriptor *find_empty_fd();
 extern bool syscall_fs_open(char *filepath);
 extern uint32_t syscall_write_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t size);
 extern uint32_t syscall_read_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t size);
-extern void close_file(uint32_t fd);
-
+extern void syscall_close_fs(uint32_t fd);
+extern bool make_dir(uint32_t fd, char *dir_name);
+extern bool make_file(uint32_t fd, char *file_name);
+//--
 // partition.c
 extern void read_partition(partition *p, char *buff, uint32_t sec, uint32_t size);
 extern void write_partition(partition *p, char *buff, uint32_t sec, uint32_t size);
@@ -136,7 +139,7 @@ extern inode *malloc_inode(partition *p);
 extern void free_inode(uint32_t inode_no);
 extern bool return_sector(partition *p, uint32_t sec);
 extern void free_all_resource_inode(uint32_t inode_no);
-extern void free_overflow_resources_inode(uint32_t inode_no);
+// extern void free_overflow_resources_inode(uint32_t inode_no);
 
 // directory.c
 

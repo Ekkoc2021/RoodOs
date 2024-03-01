@@ -33,6 +33,10 @@ void interruptHandler(uint32_t IVN, ...)
         asm("movl %%cr2, %0" : "=r"(page_fault_vaddr) : :); // cr2是存放造成page_fault的地址
         log("#PF : %d / %p \n", page_fault_vaddr, page_fault_vaddr);
         logStackInfo(&IVN);
+        // if (manager.now != NULL && manager.now != manager.init)
+        // {
+        //     exit_pro(); // 结束当前正在运行的进程
+        // }
         hlt();
         break;
     case 32:
@@ -57,6 +61,10 @@ void interruptHandler(uint32_t IVN, ...)
 
     default:
         log("---%d:-----%s------------\n", IVN, intr_name[IVN]);
+        // if (manager.now != NULL && manager.now != manager.init)
+        // {
+        //     exit_pro(); // 结束当前正在运行的进程
+        // }
         break;
     }
 }

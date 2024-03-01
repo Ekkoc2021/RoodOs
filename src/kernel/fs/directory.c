@@ -18,8 +18,8 @@ void copy_filename(char *destination, char *source)
     strlen_(source) < MAX_FILE_NAME_LEN ? memcpy_(destination, source, strlen_(source) + 1) : memcpy_(destination, source, MAX_FILE_NAME_LEN - 1);
     destination[MAX_FILE_NAME_LEN] = 0;
 }
-
-char dir_buff[1024]; // 后512专门设置为一个空白的inode文件的数据
+extern char *data_buf;
+char *dir_buff; // 后512专门设置为一个空白的inode文件的数据
 
 bool init_new_dir(uint32_t root_ino, uint32_t new_i_no)
 {
@@ -247,7 +247,6 @@ bool delete_file(uint32_t root_ino, char *file_name)
 // 通过文件名称查找文件
 bool search_file_by_name(uint32_t root_ino, char *file_name, dir_entry *dest)
 {
-
     // 读取文件
     dir_entry entry;
     entry.f_type = FT_REGULAR;
@@ -327,9 +326,9 @@ bool search_file_by_path(char *file_path, uint32_t *ino, uint32_t *file_type)
     }
     return false;
 }
-char test_buff[1024];
 void init_direcory()
 {
+    dir_buff = data_buf + 2048;
     dir_type.type = FT_DIRECTORY;
     dir_type.open = open_file;
     dir_type.read = read_file;

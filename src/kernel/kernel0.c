@@ -14,7 +14,7 @@ extern void destroyPCB(PCB *pcb); // 不会检查pcb是否正确
 extern processManager manager;
 extern void initSemaphoreMoudle();
 extern void sysDevInit();
-extern void fs_init();
+// extern void fs_init();
 
 uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...);
 

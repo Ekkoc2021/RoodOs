@@ -43,7 +43,14 @@ bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode)
         if (fs.ft[i]->type == ft)
         {
             inode *node = fs.ft[i]->open(ino, mode);
-            return true;
+            if (node != NULL)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
     }
     return false;
@@ -133,7 +140,7 @@ inode *open_file(uint32_t inode_no, uint32_t mode)
     ino->i_open_cnts++;
     return ino;
 }
-char data_buf[1024];
+char *data_buf;
 int32_t read_file(uint32_t inode_no, uint32_t addr, char *buf, uint32_t size)
 {
     int32_t read_size = 0;
@@ -216,47 +223,48 @@ void close_file(uint32_t inode_no)
 }
 
 // inode.c的函数测试
-void function_test()
-{
+// void function_test()
+// {
 
-    // 测试往0扇区写入数据
-    char buff[512];
-    char buff2[512];
-    partition *p = get_partition_by_inode_no(0);
-    inode *nod = load_inode_by_inode_no(0);
-    inode *ia = malloc_inode(p);
-    for (uint32_t i = 0; i < 18; i++)
-    {
+//     // 测试往0扇区写入数据
+//     char buff[512];
+//     char buff2[512];
+//     partition *p = get_partition_by_inode_no(0);
+//     inode *nod = load_inode_by_inode_no(0);
+//     inode *ia = malloc_inode(p);
+//     for (uint32_t i = 0; i < 18; i++)
+//     {
 
-        for (uint32_t j = 0; j < 512; j++)
-        {
-            buff[j] = i + 1;
-        }
-        if (i == 11)
-        {
-            log("11\n");
-        }
+//         for (uint32_t j = 0; j < 512; j++)
+//         {
+//             buff[j] = i + 1;
+//         }
+//         if (i == 11)
+//         {
+//             log("11\n");
+//         }
 
-        write_inode(ia->i_no, buff, i);
-        read_inode(ia->i_no, buff2, i);
-    }
+//         write_inode(ia->i_no, buff, i);
+//         read_inode(ia->i_no, buff2, i);
+//     }
 
-    // for (uint32_t i = 0; i < 18; i++)
-    // {
-    //     free_block(p, ia, i);
-    // }
-    free_all_resource_inode(ia->i_no);
-    for (uint32_t i = 0; i < 18; i++)
-    {
-        inode *ia2 = malloc_inode(p);
-        free_inode(ia2->i_no);
-    }
-    free_inode(ia->i_no);
-}
+//     // for (uint32_t i = 0; i < 18; i++)
+//     // {
+//     //     free_block(p, ia, i);
+//     // }
+//     free_all_resource_inode(ia->i_no);
+//     for (uint32_t i = 0; i < 18; i++)
+//     {
+//         inode *ia2 = malloc_inode(p);
+//         free_inode(ia2->i_no);
+//     }
+//     free_inode(ia->i_no);
+// }
 
 // 维护一个
 void fs_init()
 {
+    data_buf = mallocPage_k(&market, &data_buf);
     log("fs_init %d", sizeof(dir_entry));
 
     // 解析分区数据,读取分区根目录,查看挂载详情,至少要有分区
@@ -424,7 +432,7 @@ uint32_t syscall_read_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t size)
     return 0;
 }
 
-void syscall_close_file(uint32_t fd)
+void syscall_close_fs(uint32_t fd)
 {
     file_descriptor *all_fd = manager.now->file_descriptors;
     if (fd < FD_MEM_SIZE / sizeof(file_descriptor) && all_fd[fd].file_type != FT_UNKNOWN)
@@ -432,4 +440,24 @@ void syscall_close_file(uint32_t fd)
         close_fs(all_fd[fd].ino, all_fd[fd].file_type);
         all_fd[fd].file_type = FT_UNKNOWN;
     }
+}
+
+bool make_dir(uint32_t fd, char *dir_name)
+{
+    file_descriptor *all_fd = manager.now->file_descriptors;
+    if (fd < FD_MEM_SIZE / sizeof(file_descriptor) && all_fd[fd].file_type == FT_DIRECTORY)
+    {
+        return create_dir(all_fd[fd].ino, dir_name);
+    }
+    return false;
+}
+
+bool make_file(uint32_t fd, char *file_name)
+{
+    file_descriptor *all_fd = manager.now->file_descriptors;
+    if (fd < FD_MEM_SIZE / sizeof(file_descriptor) && all_fd[fd].file_type == FT_DIRECTORY)
+    {
+        return create_file(all_fd[fd].ino, file_name);
+    }
+    return false;
 }
