@@ -30,6 +30,8 @@ extern void semSignal(int32_t semId);
 extern void switchUserPage(virtualMemPool *pd, userPageDir *upd, uint32_t paddr, uint32_t vaddr);
 extern TSS *Tss;
 
+//---
+
 // 修改EIP为进行系统调用的位置
 void backInt30()
 {
@@ -177,6 +179,11 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
         freePage(&market, s0);
         freePage(&market, pageVaddr);
         return 0;
+    }
+
+    for (uint32_t i = 0; i < FD_MEM_SIZE; i++)
+    {
+        pcb->file_descriptors[i].file_type = 0;
     }
 
     pcb->pageVAddr = pageVaddr;

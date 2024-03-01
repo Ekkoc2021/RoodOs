@@ -62,7 +62,7 @@ int32_t read_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint
     return 0;
 }
 
-int32_t write_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size, uint32_t mode)
+int32_t write_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size)
 {
     for (uint32_t i = 0; i < fs.file_type_length; i++)
     {
@@ -365,4 +365,71 @@ amount_partition_init_done:
     init_direcory();
     init_regular();
     log("%d", sizeof(inode));
+}
+
+extern processManager manager;
+
+// fd 相关函数
+file_descriptor *find_empty_fd()
+{
+    file_descriptor *fd = manager.now->file_descriptors;
+    for (uint32_t i = 0; i < FD_MEM_SIZE / sizeof(file_descriptor); i++)
+    {
+        if (fd[i].file_type == FT_UNKNOWN)
+        {
+            return fd + i;
+        }
+    }
+    return NULL;
+}
+
+// 根据文件名称打开一个文件
+bool syscall_fs_open(char *filepath)
+{
+    // 找到空fd
+    file_descriptor *fd = find_empty_fd();
+    if (fd == NULL)
+    {
+        return false;
+    }
+
+    if (!search_file_by_path(filepath, &fd->ino, &fd->file_type))
+    {
+        return false;
+    }
+
+    return open_fs(fd->ino, fd->file_type, 0);
+}
+
+// 根据文件描述符读写文件
+uint32_t syscall_write_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t size)
+{
+    file_descriptor *all_fd = manager.now->file_descriptors;
+    if (fd < FD_MEM_SIZE / sizeof(file_descriptor) && all_fd[fd].file_type != FT_UNKNOWN)
+    {
+        // 可写
+        return write_fs(all_fd[fd].ino, all_fd[fd].file_type, addr, buf, size);
+    }
+    return 0;
+}
+
+uint32_t syscall_read_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t size)
+{
+    file_descriptor *all_fd = manager.now->file_descriptors;
+    if (fd < FD_MEM_SIZE / sizeof(file_descriptor) && all_fd[fd].file_type != FT_UNKNOWN)
+    {
+        // 可写
+        return read_fs(all_fd[fd].ino, all_fd[fd].file_type, addr, buf, size);
+    }
+    return 0;
+}
+
+void syscall_close_file(uint32_t fd)
+{
+    file_descriptor *all_fd = manager.now->file_descriptors;
+    if (fd < FD_MEM_SIZE / sizeof(file_descriptor) && all_fd[fd].file_type != FT_UNKNOWN)
+    {
+        close_fs(all_fd[fd].ino, all_fd[fd].file_type);
+        all_fd[fd].file_type = FT_UNKNOWN;
+    }
 }

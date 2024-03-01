@@ -7,7 +7,7 @@
 #include "../include/linkedList.h"
 #include "../include/linkedQueue.h"
 #define TASKSIZE 256 // 最多支持256个任务
-
+#define FD_MEM_SIZE 4096 
 typedef enum
 {
     CREATE = 1,
@@ -22,7 +22,7 @@ typedef struct
 {
     uint32_t ino;
     uint32_t file_type;
-} file_descriptors;
+} file_descriptor;
 
 typedef struct
 {
@@ -46,7 +46,7 @@ typedef struct
     queueNode blockTag; // 阻塞队列链表节点标签
     RBNode node;
     bool justWakeUp; // 是否是刚刚重睡眠状态回到运行态
-    file_descriptors *file_descriptors;
+    file_descriptor *file_descriptors;
 } PCB;
 
 typedef struct

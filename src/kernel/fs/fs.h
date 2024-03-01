@@ -91,7 +91,7 @@ typedef struct
 extern bool identify_super_b(partition *p);
 extern bool open_fs(uint32_t ino, enum file_types ft, uint32_t mode);
 extern int32_t read_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size);
-extern int32_t write_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size, uint32_t mode);
+extern int32_t write_fs(uint32_t ino, enum file_types ft, uint32_t addr, char *buf, uint32_t size);
 extern uint32_t control_fs(uint32_t ino, enum file_types ft, uint32_t cmd, int32_t *args, uint32_t n);
 extern void info_fs(uint32_t ino, enum file_types ft, char buff[DEVINFOSIZE]);
 extern void close_fs(uint32_t ino, enum file_types ft);
@@ -104,6 +104,11 @@ extern void info_file(uint32_t inode_no, char buff[DEVINFOSIZE]);
 extern void close_file(uint32_t inode_no);
 extern void function_test();
 extern void fs_init();
+extern file_descriptor *find_empty_fd();
+extern bool syscall_fs_open(char *filepath);
+extern uint32_t syscall_write_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t size);
+extern uint32_t syscall_read_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t size);
+extern void close_file(uint32_t fd);
 
 // partition.c
 extern void read_partition(partition *p, char *buff, uint32_t sec, uint32_t size);

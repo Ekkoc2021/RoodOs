@@ -100,6 +100,7 @@ device tty_dev;
 
 void initTTY()
 {
+
     initCQueue(&outBuff, outbuff, sizeof(char), TTYBUFFLEN); // 输出缓冲区
     initCQueue(&inBuff, inbuff, sizeof(char), TTYBUFFLEN);   // 输入缓冲区
 
@@ -117,6 +118,13 @@ void initTTY()
     memcpy_(tty_type.name, name, strlen_(name));
     tty_dev.type = &tty_type;
 
+    tty_type.open = open_tty;
+    tty_type.read = read_tty;
+    tty_type.write = write_tty;
+    tty_type.close = close_tty;
+    tty_type.control = control_tty;
+    tty_type.typeId = TTY;
+    tty_type.info = info_tty;
     registerDev(&tty_dev);
     ASSERT(tty_dev.deviceId != DEVNAMESIZE + 1);
 }
