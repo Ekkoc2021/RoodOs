@@ -265,8 +265,7 @@ void close_file(uint32_t inode_no)
 void fs_init()
 {
     data_buf = mallocPage_k(&market, &data_buf);
-    log("fs_init %d", sizeof(dir_entry));
-
+    log("start init fs \n");
     // 解析分区数据,读取分区根目录,查看挂载详情,至少要有分区
     // 检查分区情况
     // 识别第一个分区的超级块是否有效!
@@ -372,7 +371,7 @@ amount_partition_init_done:
     // function_test();
     init_direcory();
     init_regular();
-    log("%d", sizeof(inode));
+    log("fs init done! \n");
 }
 
 extern processManager manager;

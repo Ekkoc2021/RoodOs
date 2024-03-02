@@ -14,7 +14,8 @@ DATAS=src/dataS
 
 KERNEENTRY=0xc0011000  #c000_0000 内核入口地址,与boot加载位置和,loader跳转位置有关
 
-LDFLAGS=-Ttext $(KERNEENTRY) -m elf_i386 -static
+LDFLAGS=-O0 --gc-sections -Ttext $(KERNEENTRY) -m elf_i386 -static
+
 CFLAGS=-m32 \
 	-O0 \
 	-static \
@@ -25,18 +26,17 @@ CFLAGS=-m32 \
 	-fno-builtin \
 	-nostdlib \
 	-nodefaultlibs \
-	-nostdinc \
-	-fno-rtti \
-	-Wl,–gc-sections
+	-nostdinc 
 
 # CFLAGS=-m32 \
-# 	-O2 \
 # 	-fno-pic \
 # 	-fno-pie  \
 # 	-fno-stack-protector \
 # 	-fno-builtin \
 # 	-nostdlib \
-# 	-nostdinc \
+# 	-nostdinc 
+
+
 # CFLAGS:= -m32 					# 32 位的程序
 # CFLAGS+= -march=pentium			# pentium 处理器
 # CFLAGS+= -fno-builtin			# 不需要 gcc 内置函数
@@ -73,7 +73,7 @@ $(OUTPUT)user0.o : $(KERNEL)/us_pro/user0.asm
 $(OUTPUT)user.o : $(KERNEL)/us_pro/user.c
 	$(CC) -c $^ -o $@ $(CFLAGS) $(DEBUG) 
 
-$(OUTPUT)u.bin : $(OUTPUT)user0.o $(OUTPUT)user.o
+$(OUTPUT)u.bin : $(OUTPUT)user0.o $(OUTPUT)user.o $(OUTPUT)str.o
 	$(LD)  -m elf_i386 -static $^ -o $@ -Ttext 0
 
 $(OUTPUT)user.bin: $(OUTPUT)u.bin

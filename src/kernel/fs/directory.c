@@ -342,7 +342,6 @@ void init_direcory()
     {
         d_e[i].f_type = FT_UNKNOWN;
     }
-
     register_file_type(&dir_type);
     // d_e = test_buff;
     // log(" \n %d \n", sizeof(dir_entry));

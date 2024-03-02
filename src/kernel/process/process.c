@@ -172,19 +172,19 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
     }
 
     // 分配文件描述符
-    // pcb->file_descriptors = mallocPage_k(&market, &pcb->file_descriptors);
-    // if (pcb->file_descriptors == 0)
-    // {
-    //     freePage(&market, pcbm);
-    //     freePage(&market, s0);
-    //     freePage(&market, pageVaddr);
-    //     return 0;
-    // }
+    pcb->file_descriptors = mallocPage_k(&market, &pcb->file_descriptors);
+    if (pcb->file_descriptors == 0)
+    {
+        freePage(&market, pcbm);
+        freePage(&market, s0);
+        freePage(&market, pageVaddr);
+        return 0;
+    }
 
-    // for (uint32_t i = 0; i < FD_MEM_SIZE / sizeof(file_descriptor); i++)
-    // {
-    //     pcb->file_descriptors[i].file_type = 0;
-    // }
+    for (uint32_t i = 0; i < FD_MEM_SIZE / sizeof(file_descriptor); i++)
+    {
+        pcb->file_descriptors[i].file_type = 0;
+    }
 
     pcb->pageVAddr = pageVaddr;
     pcb->pagePAddr = paddr;
@@ -203,7 +203,6 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
 
     return pcb;
 }
-
 void loaderUserProgram(PCB *userPCB)
 {
 }
@@ -257,70 +256,10 @@ char buff1[1024];
 
 void function()
 {
-    char buff[128];
-    devParam_ d;
-    d.typeId = 1;
-    d.deviceId = 0;
-    d.buf = buff;
-    d.size = 128;
-    asm volatile(
-        "movl $60, %%eax\n"
-        "movl %0, %%ebx\n"
-        "int $0x30\n"
-        :
-        : "r"(&d)
-        : "%eax", "%ebx");
-
+    uint32_t i = 0;
     while (1)
     {
-        // if内代码属于临界资源,不允许两个进程同时访问
-        // 也就是说保证两个进程输出的ticket编号永远不能一致
-        // asm volatile(
-        //     "movl $52, %%eax\n"
-        //     "movl %0, %%ebx\n"
-        //     "int $0x30\n"
-        //     :
-        //     : "r"(seId)
-        //     : "%eax", "%ebx");
-        // 信号量失效原因:进入阻塞后下次中断回来直接跳到下一条指令了,没有再重新执行semWait,这是不应该的!
-        // 解决方案一:wait后发生阻塞将eip的值修改为上一条指令:执行中断这条命令
-        // 解决方案二:简单包装一下内核态的semWait命令,加一个循环
-
-        if (manager.now->id != 1)
-        {
-
-            sprintf_(buff, "PID:%d ,name:%s ,vruntime:%d,current tick: %d   ticket = %d:", manager.now->id, manager.now->name, manager.now->vruntime, manager.now->runtime + 1, ticket);
-            uint32_t len = strlen_(buff);
-            d.buf = buff + len;
-            d.size = 1;
-            asm volatile(
-                "movl $61, %%eax\n"
-                "movl %0, %%ebx\n"
-                "int $0x30\n"
-                :
-                : "r"(&d)
-                : "%eax", "%ebx");
-            buff[len + 1] = '\n';
-            buff[len + 2] = '\0';
-            d.buf = buff;
-            asm volatile(
-                "movl $62, %%eax\n"
-                "movl %0, %%ebx\n"
-                "int $0x30\n"
-                :
-                : "r"(&d)
-                : "%eax", "%ebx");
-            ticket--;
-
-            // asm volatile(
-            //     "movl $53, %%eax\n"
-            //     "movl %0, %%ebx\n"
-            //     "int $0x30\n"
-            //     :
-            //     : "r"(seId)
-            //     : "%eax", "%ebx");
-            /* code */
-        }
+        i++;
     }
 }
 
@@ -410,6 +349,59 @@ uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...)
     return pid;
 }
 
+uint16_t createProcess2(uint16_t weight, uint16_t argsLength, char *name, ...)
+{
+    // 创建pcb,读取磁盘,设置esp0
+    uint16_t pid = getPID();
+    if (pid == 0)
+    {
+        return 0;
+    }
+
+    // 创建PCB:pcb页,以及0特权级栈
+    PCB *pcb = createPCB(name, pid, weight);
+    usePID(pcb, pid);
+
+    // 切换到用户页表项
+    switchUserPage(market.virMemPool, &pcb->u, pcb->pagePAddr, pcb->pageVAddr);
+
+    /*
+        todo 24 1 31:
+        根据名称在磁盘加载用户程序到内存,这里不涉及加载
+        直接将内核某个函数设置为用户程序,同时直接分配内存
+    */
+    uint32_t paddr;
+
+    // 分配所需内存
+    uint32_t me = mallocMultpage_u(&market, 20);
+    StackInfo *s = (StackInfo *)(pcb->esp0 - sizeof(StackInfo));
+    // 读取程序进入内存
+
+    readDis(me, 10, 410);
+
+    // 初始化0特权级栈
+    initStack(s, 0, (me) + 4096 * (20) - 32 - argsLength * sizeof(char) - 4);
+
+    //------todo 24 1 31 -------
+    /*
+        正确性有待具体测试,目前看来缺陷很大
+        根据传入参数个数,将数据压入用户栈中
+    */
+    va_list args;               // 定义参数
+    va_start(args, argsLength); // 初始化
+    memcpy_(s->oldESP + 4, name, argsLength);
+    va_end(args);
+    //-----------------------------
+
+    // 设置pcb为就绪
+    pcb->status = WAIT;
+    // 往就绪队列中加入该pcb
+    insertWait(pcb);
+
+    // 切回原用户
+    switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+    return pid;
+}
 // 将某个pcb占用的内存回收,其他进程对某个进程pcb的回收
 void destroyPCB(PCB *pcb)
 {
@@ -500,14 +492,17 @@ void switch_to_user_mode()
 
 // init进程在内核态执行,可以做一些需要在内核完成的事情
 // 没有任何进程,也许是都阻塞了,死锁!!
+// todo 24/3/2 栈恢复时有问题,但暂时就先这样放着了
 void initFunction()
 {
     uint32_t i = 0;
     while (1)
     {
         i++;
-        log("no process , init process is running:%d\n", i);
-        // hlt();
+        if (i % 100 == 0)
+        {
+            log("no process , init process is running:%d\n", i);
+        }
     }
 }
 

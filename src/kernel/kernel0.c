@@ -16,8 +16,8 @@ extern void initSemaphoreMoudle();
 extern void sysDevInit();
 // extern void fs_init();
 
-uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...);
-
+extern uint16_t createProcess(uint16_t weight, uint16_t argsLength, char *name, ...);
+extern uint16_t createProcess2(uint16_t weight, uint16_t argsLength, char *name, ...);
 void initRoodOs();
 void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePhAddr);
 // extern memoryMarket *market; 已经定义过了
@@ -34,27 +34,17 @@ int main(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePh
     printf("___%s__%s_ \nkernel p\\v addr:0x%p\\0x%p\n", roodos.name, roodos.version, roodos.physicalAddr, roodos.virtualAddr);
     init_all_module(memCount, memAddr, KernelVAddr, pTablePhAddr);
 
-    //-------测试-----
-
-    char *name = "shell1";
+    // 之前的设计存在bug:估计是栈的问题,当只有一个用户进程时(一个是init进程,一个是用户进程)
+    // 用户进程一阻塞在弹出GS寄存器时出现了异常,估计是init进程栈的问题
+    // 用下面这个进程充当init进程
+    char *name = "init";
     createProcess(1, strlen_(name), name);
-    char *name2 = "shell2";
-    createProcess(1, strlen_(name2), name2);
+
+    // char *name2 = "shell2";
+    // createProcess(1, strlen_(name2), name2);
     char *name3 = "shell3";
-    createProcess(1, strlen_(name3), name3);
-    // char buff[50];
-    // for (uint16_t i = 1; i < 25; i++)
-    // {
-    //     sprintf_(buff, "task %d", i);
+    createProcess2(3, strlen_(name3), name3);
 
-    //     createProcess(i % 3 + 1, strlen_(buff), buff);
-    // }
-
-    // destroyPCB(manager.task[1]);
-    // destroyPCB(manager.task[4]);
-    // destroyPCB(manager.task[6]);
-    // destroyPCB(manager.task[7]);
-    // destroyPCB(manager.task[9]);
     switch_to_user_mode();
 }
 void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePhAddr)
