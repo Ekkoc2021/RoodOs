@@ -370,12 +370,49 @@ int read_f(int fd, char *buff, int sector, int size)
     return read_size;
 }
 
+bool make_d(int fd, char *dir_name)
+{
+    f_param fp;
+    fp.fd = fd;
+    fp.buf = dir_name;
+
+    char return_value;
+    asm volatile(
+        "movl $104, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&fp), "r"(&return_value)
+        : "%eax", "%ebx", "%ecx");
+    return return_value;
+}
+
+bool make_f(int fd, char *dir_name)
+{
+    f_param fp;
+    fp.fd = fd;
+    fp.buf = dir_name;
+
+    char return_value;
+    asm volatile(
+        "movl $105, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&fp), "r"(&return_value)
+        : "%eax", "%ebx", "%ecx");
+    return return_value;
+}
+
 char file_buff[512];
 char reslove_ls(char *cmd, char *args)
 {
     // 在本地文件夹
     int sec_index = 0;
     dir_en *entries = file_buff;
+    int32_t file_count = 0;
     while (read_f(pwd_fd, file_buff, sec_index, 512) != 0)
     {
         for (uint32_t i = 0; i < 512 / 24; i++)
@@ -392,12 +429,19 @@ char reslove_ls(char *cmd, char *args)
                     t = "dir";
                 }
 
-                sprintf_(output_buff, "name: %s type : %s  \n", entries[i].filename, t);
+                sprintf_(output_buff, "%s [%s]       ", entries[i].filename, t);
                 write_stdio(output_buff, strlen_(output_buff));
+                file_count++;
+                if (file_count % 2 == 0)
+                {
+                    write_stdio("\n", 1);
+                }
             }
         }
         sec_index++;
     }
+    sprintf_(output_buff, "\ntotal   %d  \n", file_count);
+    write_stdio(output_buff, strlen_(output_buff));
     return 1;
 }
 char reslove_cd(char *cmd, char *args)
@@ -406,11 +450,67 @@ char reslove_cd(char *cmd, char *args)
 }
 char reslove_mkdir(char *cmd, char *args)
 {
-    write_stdio("mkdir\n", 6);
+    char *file_name = args;
+    // 解析参数
+    for (int index = 0; index < 256; index++)
+    {
+        if (args[index] == ' ')
+        {
+            file_name = args + index + 1;
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (file_name[0] == '\0')
+    {
+        return 0;
+    }
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (file_name[i] == ' ' || file_name[i] == '\0')
+        {
+            file_name[i] = '\0';
+            break;
+        }
+    }
+
+    return make_d(pwd_fd, file_name);
 }
 char reslove_mkfile(char *cmd, char *args)
 {
-    write_stdio("mkfile\n", 7);
+    char *file_name = args;
+    // 解析参数
+    for (int index = 0; index < 256; index++)
+    {
+        if (args[index] == ' ')
+        {
+            file_name = args + index + 1;
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (file_name[0] == '\0')
+    {
+        return 0;
+    }
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (file_name[i] == ' ' || file_name[i] == '\0')
+        {
+            file_name[i] = '\0';
+            break;
+        }
+    }
+
+    return make_f(pwd_fd, file_name);
 }
 char reslove_rm(char *cmd, char *args)
 {
@@ -453,18 +553,18 @@ char resolve(char *cmd, char *args)
 char resolve_and_respond(char *command)
 {
     // 首先确定是那一条指令,然后根据指令确定其参数
-    char *cmd = 0;
-    char *args = 0;
+    char *cmd = command;
+    char *args = command;
     // 确定cmd_start
     for (int index = 0; index < 256; index++)
     {
         if (command[index] == ' ')
         {
+            cmd = command + index + 1;
             continue;
         }
         else
         {
-            cmd = command + index;
             break;
         }
     }

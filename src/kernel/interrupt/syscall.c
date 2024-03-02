@@ -231,7 +231,7 @@ void sys_call(StackInfo *s)
         fp = (file_param *)(s->EBX);
         if (fp != NULL)
         {
-            *(uint32_t *)(s->ECX) = make_dir(fp->fd, fp->buf);
+            *(bool *)(s->ECX) = make_dir(fp->fd, fp->buf);
         }
     }
     else if (s->EAX == 105)
@@ -239,7 +239,7 @@ void sys_call(StackInfo *s)
         fp = (file_param *)(s->EBX);
         if (fp != NULL)
         {
-            *(uint32_t *)(s->ECX) = make_file(fp->fd, fp->buf);
+            *(bool *)(s->ECX) = make_file(fp->fd, fp->buf);
         }
     } // ... 更
 }
