@@ -57,8 +57,7 @@ void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint3
     roodos.market = initMemoryManagement(
         memCount, (void *)memAddr,
         (void *)KernelVAddr,
-        (void *)pTablePhAddr); // 内存管理初始化
-
+        (void *)pTablePhAddr);           // 内存管理初始化
     interruptInit();                     // 中断初始化
     initSemaphoreMoudle();               // 系统全局信号量模块初始
     initProcess(roodos.tss, roodos.gdt); // 进程管理初始化

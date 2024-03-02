@@ -5,6 +5,7 @@ extern processManager manager;
 extern void backInt30();
 sem_t sems[SEMSIZE];
 
+uint32_t seId;
 void initSemaphoreMoudle()
 {
     for (uint16_t i = 0; i < SEMSIZE; i++)
@@ -12,14 +13,17 @@ void initSemaphoreMoudle()
         sems[i].pcb = 0;
         initQueue(&(sems[i].block));
     }
+    sems[0].pcb = 202432;
 }
 
 // 在系统内拿到一个可用的信号量
+
 int32_t getAvailableSem()
 {
     for (uint16_t i = 0; i < SEMSIZE; i++)
     {
         if (sems[i].pcb == 0)
+
         {
             return i;
         }
@@ -28,6 +32,7 @@ int32_t getAvailableSem()
 }
 
 // 通过信号量id,设置信号量
+
 void setSem(uint32_t pcb, uint16_t __value, uint16_t id)
 {
     sems[id].pcb = pcb;

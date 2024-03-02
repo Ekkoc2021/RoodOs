@@ -238,31 +238,146 @@ void initStack(StackInfo *s, uint32_t eip, uint32_t esp3)
 }
 // 反正也是在内核空间测试进程调度
 
-//--------测试---------------
-int32_t ticket = 100;
-uint32_t seId = -1; // 初始化进程的设置好了
-
+//--------测试----------------------------------------------------------
+// 实现 shell 命令行
 // 测试设备管理系统调用
 typedef struct
 {
     char *buf;
-    uint32_t typeId;
-    uint32_t deviceId;
-    uint32_t addr;
-    uint32_t size;
+    unsigned int typeId;
+    unsigned int deviceId;
+    unsigned int addr;
+    unsigned int size; // 即是返回值有是传入值
 } devParam_;
 
-char buff1[1024];
-
-void function()
+devParam_ dev_stdio;
+void open_stdio()
 {
-    uint32_t i = 0;
+    dev_stdio.typeId = 1;
+    dev_stdio.deviceId = 0;
+    dev_stdio.size = 128;
+    asm volatile(
+        "movl $60, %%eax\n"
+        "movl %0, %%ebx\n"
+        "int $0x30\n"
+        :
+        : "r"(&dev_stdio)
+        : "%eax", "%ebx");
+}
+unsigned int read_stdio(char *buff, unsigned int size)
+{
+    dev_stdio.size = size;
+    dev_stdio.buf = buff;
+    uint32_t read_size = 0;
+    asm volatile(
+        "movl $61, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+
+        :
+        : "r"(&dev_stdio), "r"(&read_size)
+        : "%eax", "%ebx");
+    return read_size;
+}
+
+unsigned int write_stdio(char *buff, unsigned int size)
+{
+    dev_stdio.size = size;
+    dev_stdio.buf = buff;
+    uint32_t write_size = 0;
+    asm volatile(
+        "movl $62, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&dev_stdio), "r"(&write_size)
+        : "%eax", "%ebx");
+    return write_size;
+}
+
+// 根据传入参数解析命令行并响应,返回是否退出shell程序,1退出
+char resolve_and_respond(char *command)
+{
+    // ls 列出当前文件夹
+
+    // cd 文件夹
+
+    // mkdir 创建文件夹
+
+    // mkfile 创建文件
+
+    // rm 删除文件
+
+    // rmdir 删除文件夹,如果文件夹内有文件,则无法删除
+
+    // exec 加载某个可执行的文件
+
+    return false;
+}
+// shell 实现
+// 一个个从键盘读取字符然后往控制台丢数据,同时记录读取到数据,当按下回车的时候,解析读取到的数据
+void shell()
+{
+    char data;
+    char cmd_str[256]; // 最多256个字符,不能再多了
+    int cmd_length;
+    char *prompt = "roodos@ekko>";
+    open_stdio();
+
     while (1)
     {
-        i++;
+        // 写入标识
+        cmd_length = 0;
+        write_stdio(prompt, strlen_(prompt));
+
+        while (cmd_length < 254)
+        {
+            // 读取到如果是回车则往缓冲区中放数据
+            read_stdio(&data, 1);
+
+            if (data == '\r')
+
+            {
+                data = '\n';
+                write_stdio(&data, 1); // 写入换行
+                cmd_str[cmd_length] = '\0';
+                break;
+            }
+
+            if (data == '\b')
+            {
+
+                if (cmd_length != 0)
+                {
+                    cmd_length--;
+                    write_stdio(&data, 1);
+                }
+                // 如果buff_size为0不管
+            }
+            else
+            {
+                cmd_str[cmd_length] = data;
+                cmd_length++;
+                write_stdio(&data, 1);
+            }
+        }
+
+        // 解析命令
+        if (resolve_and_respond(cmd_str))
+        {
+            break;
+        }
     }
 }
 
+void function()
+{
+    shell();
+}
+
+//-----------------------------------------------------------------------------
 // 进程结束
 void exit_pro()
 {
@@ -505,7 +620,6 @@ void initFunction()
         }
     }
 }
-
 void initProcess(TSS *tss, GDT *gdt)
 {
     // 初始化task
@@ -547,9 +661,4 @@ void initProcess(TSS *tss, GDT *gdt)
     s->FS = 0b10000;
     s->ES = 0b10000;
     s->DS = 0b10000;
-
-    // 初始化一个信号量 todo : 测试使用,可以删除
-    initSem(1, &seId);
-    //
-    // log("%d\n", sizeof(file_descriptors));
 }

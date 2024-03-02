@@ -60,7 +60,13 @@ int32_t read_tty(device *dev, uint32_t addr, char *buf, uint32_t size)
 int32_t write_tty(device *dev, uint32_t addr, char *buf, uint32_t size)
 {
     // 就比较简单了,直接调用console中写数据往显示台写数据即可
-    console_puts(buf); // 就不过缓冲区了,感觉脱裤子放屁
+    // console_puts(buf); // 就不过缓冲区了
+    // 应该要实现一个根据size大小去写数据的
+    for (uint32_t i = 0; i < size; i++)
+    {
+        console_putchar(buf[i]);
+    }
+    return size;
 }
 
 uint32_t control_tty(device *dev, uint32_t cmd, int32_t *args, uint32_t n)

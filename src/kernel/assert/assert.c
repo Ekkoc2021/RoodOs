@@ -12,5 +12,6 @@ void panic_spin(char *filename,
     printf("function:%s \n", (char *)func);
     printf("condition:%s \n", (char *)condition);
     while (1)
+
         hlt();
 }
