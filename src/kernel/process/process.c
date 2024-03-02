@@ -296,34 +296,118 @@ unsigned int write_stdio(char *buff, unsigned int size)
         : "%eax", "%ebx");
     return write_size;
 }
+typedef struct
+{
+    char *cmd;
+    void (*resolve)(char *cmd, char *args);
+} command;
+char output_buff[512];
+// ls 列出当前文件夹下的文件
+// cd 文件夹
+// mkdir 创建文件夹
+// mkfile 创建文件
+// rm 删除文件
+// rmdir 删除文件夹,如果文件夹内有文件,则无法删除
+// exec 加载某个可执行的文件
 
+char reslove_ls(char *cmd, char *args)
+{
+    write_stdio("ls\n", 3);
+    return 1;
+}
+char reslove_cd(char *cmd, char *args)
+{
+}
+char reslove_mkdir(char *cmd, char *args)
+{
+}
+char reslove_mkfile(char *cmd, char *args)
+{
+}
+char reslove_rm(char *cmd, char *args)
+{
+}
+char reslove_rmdir(char *cmd, char *args)
+{
+}
+
+char reslove_exec(char *cmd, char *args)
+{
+}
+
+#define CMD_LIST_LENGTH 16
+command cmd_list[CMD_LIST_LENGTH] = {
+    {.cmd = "ls", .resolve = reslove_ls},
+    {.cmd = "cd", .resolve = reslove_cd},
+    {.cmd = "mkdir", .resolve = reslove_mkdir},
+    {.cmd = "mkfile", .resolve = reslove_mkfile},
+    {.cmd = "rm", .resolve = reslove_rm},
+    {.cmd = "rmdir", .resolve = reslove_rmdir},
+    {.cmd = "exec", .resolve = reslove_exec},
+};
+// 参数解析
+char resolve(char *cmd, char *args)
+{
+    for (int i = 0; i < CMD_LIST_LENGTH; i++)
+    {
+        if (cmd_list[i].cmd != NULL && strcmp_(cmd, cmd_list[i].cmd) == 0 && cmd_list[i].resolve != NULL)
+        {
+            cmd_list[i].resolve(cmd, args);
+            return true;
+        }
+    }
+    return false;
+}
 // 根据传入参数解析命令行并响应,返回是否退出shell程序,1退出
 char resolve_and_respond(char *command)
 {
-    // ls 列出当前文件夹
-
-    // cd 文件夹
-
-    // mkdir 创建文件夹
-
-    // mkfile 创建文件
-
-    // rm 删除文件
-
-    // rmdir 删除文件夹,如果文件夹内有文件,则无法删除
-
-    // exec 加载某个可执行的文件
-
-    return false;
+    // 首先确定是那一条指令,然后根据指令确定其参数
+    char *cmd = 0;
+    char *args = 0;
+    // 确定cmd_start
+    for (int index = 0; index < 256; index++)
+    {
+        if (command[index] == ' ')
+        {
+            continue;
+        }
+        else
+        {
+            cmd = command + index;
+            break;
+        }
+    }
+    if (cmd[0] == '\0')
+    {
+        return false;
+    }
+    // 确定cmd的结尾
+    for (int index = 0; index < 256; index++)
+    {
+        if (cmd[index] == ' ' || cmd[index] == '\0')
+        {
+            cmd[index] = '\0';
+            args = cmd + index + 1; // 如果args恰好在哨兵位置,说明到达输入结尾
+        }
+    }
+    // 确定调用那个命令去处理
+    if (!resolve(cmd, args))
+    {
+        {
+            sprintf_(output_buff, "%s : command not found\n", cmd);
+            write_stdio(output_buff, strlen_(output_buff));
+        }
+    }
 }
 // shell 实现
 // 一个个从键盘读取字符然后往控制台丢数据,同时记录读取到数据,当按下回车的时候,解析读取到的数据
+
 void shell()
 {
     char data;
     char cmd_str[256]; // 最多256个字符,不能再多了
     int cmd_length;
-    char *prompt = "roodos@ekko>";
+    char *prompt = "roodOs@ekko>";
     open_stdio();
 
     while (1)
@@ -332,17 +416,18 @@ void shell()
         cmd_length = 0;
         write_stdio(prompt, strlen_(prompt));
 
-        while (cmd_length < 254)
+        while (1)
         {
             // 读取到如果是回车则往缓冲区中放数据
             read_stdio(&data, 1);
 
-            if (data == '\r')
+            if (data == '\r' || cmd_length == 253)
 
             {
                 data = '\n';
                 write_stdio(&data, 1); // 写入换行
                 cmd_str[cmd_length] = '\0';
+                cmd_str[cmd_length + 1] = '\0'; // 哨兵防止溢出
                 break;
             }
 
@@ -365,10 +450,9 @@ void shell()
         }
 
         // 解析命令
-        if (resolve_and_respond(cmd_str))
-        {
-            break;
-        }
+        resolve_and_respond(cmd_str);
+
+        // 不提供退出命令行的方式
     }
 }
 
