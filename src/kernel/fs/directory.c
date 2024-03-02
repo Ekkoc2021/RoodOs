@@ -281,6 +281,12 @@ bool search_file_by_path(char *file_path, uint32_t *ino, uint32_t *file_type)
     {
         return false;
     }
+    if (file_path[1] == '\0')
+    {
+        *file_type = FT_DIRECTORY;
+        *ino = 0;
+        return true;
+    }
     file_path = file_path + 1;
     *ino = 0;
     dir_entry entry = {.f_type = FT_DIRECTORY, .i_no = 0};

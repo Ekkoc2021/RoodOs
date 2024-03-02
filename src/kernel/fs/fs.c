@@ -352,6 +352,8 @@ void fs_init()
         p1++;
     }
 amount_partition_init_done:
+    init_direcory();
+    init_regular();
     // 如果是第一次初始化
     if (firstInit)
     {
@@ -369,43 +371,47 @@ amount_partition_init_done:
 
     // test
     // function_test();
-    init_direcory();
-    init_regular();
+
     log("fs init done! \n");
 }
 
 extern processManager manager;
 
 // fd 相关函数
-file_descriptor *find_empty_fd()
+uint32_t find_empty_fd()
 {
     file_descriptor *fd = manager.now->file_descriptors;
     for (uint32_t i = 0; i < FD_MEM_SIZE / sizeof(file_descriptor); i++)
     {
         if (fd[i].file_type == FT_UNKNOWN)
         {
-            return fd + i;
+            return i;
         }
     }
-    return NULL;
+    return FD_MEM_SIZE / sizeof(file_descriptor);
 }
 
 // 根据文件名称打开一个文件
-bool syscall_fs_open(char *filepath)
+uint32_t syscall_fs_open(char *filepath)
 {
     // 找到空fd
-    file_descriptor *fd = find_empty_fd();
-    if (fd == NULL)
+    uint32_t fd_index = find_empty_fd();
+    if (fd_index == FD_MEM_SIZE / sizeof(file_descriptor))
     {
-        return false;
+        return 1024;
     }
-
+    file_descriptor *fd = manager.now->file_descriptors + fd_index;
     if (!search_file_by_path(filepath, &fd->ino, &fd->file_type))
     {
-        return false;
+        return 1024;
     }
 
-    return open_fs(fd->ino, fd->file_type, 0);
+    if (open_fs(fd->ino, fd->file_type, 0))
+    {
+        return fd_index;
+    }
+    fd->file_type = FT_UNKNOWN;
+    return 1024;
 }
 
 // 根据文件描述符读写文件

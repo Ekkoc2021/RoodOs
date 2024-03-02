@@ -277,7 +277,7 @@ unsigned int read_stdio(char *buff, unsigned int size)
 
         :
         : "r"(&dev_stdio), "r"(&read_size)
-        : "%eax", "%ebx");
+        : "%eax", "%ebx", "%ecx");
     return read_size;
 }
 
@@ -293,7 +293,7 @@ unsigned int write_stdio(char *buff, unsigned int size)
         "int $0x30\n"
         :
         : "r"(&dev_stdio), "r"(&write_size)
-        : "%eax", "%ebx");
+        : "%eax", "%ebx", "%ecx");
     return write_size;
 }
 typedef struct
@@ -310,29 +310,120 @@ char output_buff[512];
 // rmdir 删除文件夹,如果文件夹内有文件,则无法删除
 // exec 加载某个可执行的文件
 
+typedef struct
+{
+    uint32_t fd;
+    uint32_t addr;
+    char *buf;
+    uint32_t size;
+} f_param;
+
+enum f_types
+{
+    FT_UNKNOWN,   // 不支持的文件类型
+    FT_REGULAR,   // 普通文件
+    FT_DIRECTORY, // 目录
+    DEVICE,       // 设备
+    PARTITION,    // 挂载的分区
+};
+
+typedef struct dir_entry
+{
+    char filename[16];   // 普通文件或目录名称
+    int i_no;            // 普通文件或目录对应的inode编号
+    enum f_types f_type; // 文件类型
+} dir_en;
+
+int pwd_fd; // 当前位置的文件描述符
+
+unsigned int open_f(char *file_path)
+{
+    unsigned int return_value;
+    asm volatile(
+        "movl $100, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(file_path), "r"(&return_value)
+        : "%eax", "%ebx", "%ecx");
+    return return_value;
+}
+// sector 扇区
+int read_f(int fd, char *buff, int sector, int size)
+{
+    f_param fp;
+    fp.fd = fd;
+    fp.addr = sector;
+    fp.size = size;
+    fp.buf = buff;
+
+    int read_size;
+    asm volatile(
+        "movl $101, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&fp), "r"(&read_size)
+        : "%eax", "%ebx", "%ecx");
+    return read_size;
+}
+
+char file_buff[512];
 char reslove_ls(char *cmd, char *args)
 {
-    write_stdio("ls\n", 3);
+    // 在本地文件夹
+    int sec_index = 0;
+    dir_en *entries = file_buff;
+    while (read_f(pwd_fd, file_buff, sec_index, 512) != 0)
+    {
+        for (uint32_t i = 0; i < 512 / 24; i++)
+        {
+            if (entries[i].f_type != FT_UNKNOWN)
+            {
+                char *t;
+                if (entries[i].f_type == FT_REGULAR)
+                {
+                    t = "file";
+                }
+                else
+                {
+                    t = "dir";
+                }
+
+                sprintf_(output_buff, "name: %s type : %s  \n", entries[i].filename, t);
+                write_stdio(output_buff, strlen_(output_buff));
+            }
+        }
+        sec_index++;
+    }
     return 1;
 }
 char reslove_cd(char *cmd, char *args)
 {
+    write_stdio("cd\n", 3);
 }
 char reslove_mkdir(char *cmd, char *args)
 {
+    write_stdio("mkdir\n", 6);
 }
 char reslove_mkfile(char *cmd, char *args)
 {
+    write_stdio("mkfile\n", 7);
 }
 char reslove_rm(char *cmd, char *args)
 {
+    write_stdio("rm\n", 3);
 }
 char reslove_rmdir(char *cmd, char *args)
 {
+    write_stdio("rmdir\n", 6);
 }
 
 char reslove_exec(char *cmd, char *args)
 {
+    write_stdio("exec\n", 5);
 }
 
 #define CMD_LIST_LENGTH 16
@@ -388,6 +479,7 @@ char resolve_and_respond(char *command)
         {
             cmd[index] = '\0';
             args = cmd + index + 1; // 如果args恰好在哨兵位置,说明到达输入结尾
+            break;
         }
     }
     // 确定调用那个命令去处理
@@ -408,13 +500,19 @@ void shell()
     char cmd_str[256]; // 最多256个字符,不能再多了
     int cmd_length;
     char *prompt = "roodOs@ekko>";
+    char pwd[256]; // 当前所在位置
+
+    pwd[0] = '/';
+    pwd[1] = '\0';
+    pwd_fd = open_f(pwd);
     open_stdio();
 
     while (1)
     {
         // 写入标识
         cmd_length = 0;
-        write_stdio(prompt, strlen_(prompt));
+        sprintf_(output_buff, "%s:%s >", prompt, pwd);
+        write_stdio(output_buff, strlen_(output_buff));
 
         while (1)
         {
@@ -422,7 +520,6 @@ void shell()
             read_stdio(&data, 1);
 
             if (data == '\r' || cmd_length == 253)
-
             {
                 data = '\n';
                 write_stdio(&data, 1); // 写入换行

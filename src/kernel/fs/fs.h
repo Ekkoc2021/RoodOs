@@ -103,10 +103,9 @@ extern int32_t write_file(uint32_t inode_no, uint32_t addr, char *buf, uint32_t 
 extern uint32_t control_file(uint32_t inode_no, uint32_t cmd, int32_t *args, uint32_t n);
 extern void info_file(uint32_t inode_no, char buff[DEVINFOSIZE]);
 extern void close_file(uint32_t inode_no);
-extern void function_test();
 extern void fs_init();
-extern file_descriptor *find_empty_fd();
-extern bool syscall_fs_open(char *filepath);
+extern uint32_t find_empty_fd();
+extern uint32_t syscall_fs_open(char *filepath);
 extern uint32_t syscall_write_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t size);
 extern uint32_t syscall_read_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t size);
 extern void syscall_close_fs(uint32_t fd);

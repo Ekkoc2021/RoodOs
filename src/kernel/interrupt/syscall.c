@@ -204,7 +204,7 @@ void sys_call(StackInfo *s)
     }
     else if (s->EAX == 100)
     { // 文件系统相关,系统调用
-        *(bool *)(s->ECX) = syscall_fs_open(s->EBX);
+        *(uint32_t *)(s->ECX) = syscall_fs_open(s->EBX);
     }
     else if (s->EAX == 101)
     {
