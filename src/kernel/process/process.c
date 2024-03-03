@@ -480,6 +480,23 @@ unsigned int get_ft(int fd)
         : "%eax", "%ebx", "%ecx");
     return return_value;
 }
+unsigned short exec_(unsigned short weight, char *exec_file_path, uint16_t argsLength)
+{
+    proc_inf p;
+    p.weight = weight;
+    p.exec_file_path = exec_file_path;
+    p.argsLength = argsLength;
+    unsigned short PID;
+    asm volatile(
+        "movl $13, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&p), "r"(&PID)
+        : "%eax", "%ebx", "%ecx");
+    return PID;
+}
 bool remove_d(int fd, char *dir_name)
 {
     f_param fp;
@@ -833,7 +850,95 @@ char reslove_rmdir(char *cmd, char *args)
 
 char reslove_exec(char *cmd, char *args)
 {
-    write_stdio("exec\n", 5);
+    // 不考虑多级的情况!
+
+    // 处理args
+    char *exec_file_name = args;
+    // 解析参数
+    for (int index = 0; index < 256; index++)
+    {
+        if (args[index] == ' ')
+        {
+            exec_file_name = args + index + 1;
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (exec_file_name[0] == '\0')
+    {
+        return 0;
+    }
+
+    int work_dir_length = strlen_(work_dir);
+    for (int i = 0; i < 256; i++)
+    {
+        if (exec_file_name[i] == ' ' || exec_file_name[i] == '\0')
+        {
+            exec_file_name[i] = '\0';
+            if (exec_file_name[i - 1] == '/')
+            {
+                // 处理 /hello/ 的情况
+                if (i != 1)
+                {
+                    exec_file_name[i - 1] = '\0';
+                }
+            }
+            break;
+        }
+    }
+    if (strcmp_(".", exec_file_name) == 0 || strcmp_("..", exec_file_name) == 0)
+    {
+        // 检查类型失败
+        return false;
+    }
+    // 判断是否基于当前目录
+    if (exec_file_name[0] != '/')
+    {
+        // 基于当前目录
+        if (work_dir_length == 1)
+        {
+            sprintf_(file_buff, "/%s", exec_file_name);
+        }
+        else
+        {
+            sprintf_(file_buff, "%s/%s", work_dir, exec_file_name);
+        }
+    }
+    else
+    {
+        sprintf_(file_buff, exec_file_name);
+        if (strcmp_(file_buff, work_dir) == 0)
+        {
+            return true;
+        }
+    }
+
+    // file_buff得到新的工作目录
+    int new_fd = open_f(file_buff);
+    if (new_fd == 1024)
+    {
+        // 检查文件描述符是否有效
+        sprintf_(output_buff, "cd: No such file (%s)\n", file_buff);
+        write_stdio(output_buff, strlen_(output_buff));
+        return false;
+    }
+    // 检查文件类型是否是文件夹
+    unsigned int ft = get_ft(new_fd);
+    if (ft != FT_REGULAR)
+    {
+        // 检查文件描述符是否有效
+        sprintf_(output_buff, "cd: No such file (%s)\n", file_buff);
+        write_stdio(output_buff, strlen_(output_buff));
+        close_f(new_fd);
+        return false;
+    }
+
+    // 满足切换条件
+    close_f(new_fd);
+    exec_(3, file_buff, 0);
+    return true;
 }
 
 #define CMD_LIST_LENGTH 16
@@ -975,23 +1080,7 @@ void *malloc_page(unsigned int page_size)
         : "%eax", "%ebx", "%ecx");
     return return_value;
 }
-unsigned short exec_(unsigned short weight, char *exec_file_path, uint16_t argsLength)
-{
-    proc_inf p;
-    p.weight = weight;
-    p.exec_file_path = exec_file_path;
-    p.argsLength = argsLength;
-    unsigned short PID;
-    asm volatile(
-        "movl $13, %%eax\n"
-        "movl %0, %%ebx\n"
-        "movl %1, %%ecx\n"
-        "int $0x30\n"
-        :
-        : "r"(&p), "r"(&PID)
-        : "%eax", "%ebx", "%ecx");
-    return PID;
-}
+
 void exit()
 {
     asm volatile(
@@ -1004,22 +1093,23 @@ void exit()
 extern uint16_t createProcess3(uint16_t weight, char *exec_file_path, uint16_t argsLength, ...);
 void function()
 {
-    // shell();
-    for (uint32_t i = 0; i < 10000; i++)
+    for (int i = 0; i < 100; i++)
     {
-        i++;
+        exec_(7, "/test", 0);
     }
+
+    shell();
     // int fd = open_f("/test");
     // char *bu = malloc_page(3);
     // readDis(bu, 10, 410);
     // write_f(fd, bu, 0, 3 * 4096);
-    exec_(7, "/test", 0);
-    int i = 0;
-    exit();
-    while (1)
-    {
-        i++;
-    }
+
+    // int i = 0;
+    // exit();
+    // while (1)
+    // {
+    //     i++;
+    // }
 }
 
 //-----------------------------------------------------------------------------

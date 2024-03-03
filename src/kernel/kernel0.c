@@ -65,6 +65,7 @@ void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint3
     fs_init();                           // 文件系统初始化
 }
 void initRoodOs()
+
 {
     printf("Kernel was loaded successful !\n");
     roodos.name = "RoodOs";

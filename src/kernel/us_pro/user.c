@@ -18,7 +18,7 @@ int main()
     {
         i++;
         sprintf_(buff, "i=%d\n", i);
-        print(buff);
+        // print(buff);
     }
     return 0;
 }
