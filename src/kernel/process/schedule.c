@@ -45,6 +45,7 @@ void insertWait(PCB *pcb)
     pcb->node.data = pcb;
     insertRBT(wait, &(pcb->node));
 }
+
 void switchProcess()
 {
 

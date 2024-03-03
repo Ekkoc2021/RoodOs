@@ -334,6 +334,14 @@ typedef struct dir_entry
     enum f_types f_type; // 文件类型
 } dir_en;
 
+typedef struct
+{
+    uint16_t weight;
+    uint16_t argsLength;
+    char *exec_file_path;
+    char *args;
+} proc_inf;
+
 int work_dir_fd;    // 当前位置的文件描述符
 char work_dir[256]; // 当前所在位置
 unsigned int open_f(char *file_path)
@@ -373,6 +381,27 @@ int read_f(int fd, char *buff, int sector, int size)
     int read_size;
     asm volatile(
         "movl $101, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&fp), "r"(&read_size)
+        : "%eax", "%ebx", "%ecx");
+    return read_size;
+}
+
+// write
+int write_f(int fd, char *buff, int sector, int size)
+{
+    f_param fp;
+    fp.fd = fd;
+    fp.addr = sector;
+    fp.size = size;
+    fp.buf = buff;
+    int read_size;
+
+    asm volatile(
+        "movl $102, %%eax\n"
         "movl %0, %%ebx\n"
         "movl %1, %%ecx\n"
         "int $0x30\n"
@@ -933,9 +962,64 @@ void shell()
     }
 }
 
+void *malloc_page(unsigned int page_size)
+{
+    void *return_value;
+    asm volatile(
+        "movl $200, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(page_size), "r"(&return_value)
+        : "%eax", "%ebx", "%ecx");
+    return return_value;
+}
+unsigned short exec_(unsigned short weight, char *exec_file_path, uint16_t argsLength)
+{
+    proc_inf p;
+    p.weight = weight;
+    p.exec_file_path = exec_file_path;
+    p.argsLength = argsLength;
+    unsigned short PID;
+    asm volatile(
+        "movl $13, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&p), "r"(&PID)
+        : "%eax", "%ebx", "%ecx");
+    return PID;
+}
+void exit()
+{
+    asm volatile(
+        "movl $12, %%eax\n"
+        "int $0x30\n"
+        :
+        :
+        :);
+}
+extern uint16_t createProcess3(uint16_t weight, char *exec_file_path, uint16_t argsLength, ...);
 void function()
 {
-    shell();
+    // shell();
+    for (uint32_t i = 0; i < 10000; i++)
+    {
+        i++;
+    }
+    // int fd = open_f("/test");
+    // char *bu = malloc_page(3);
+    // readDis(bu, 10, 410);
+    // write_f(fd, bu, 0, 3 * 4096);
+    exec_(7, "/test", 0);
+    int i = 0;
+    exit();
+    while (1)
+    {
+        i++;
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -962,13 +1046,21 @@ void exit_pro()
     manager.now->status = RUNNING;
     // 修改tss 0特权级栈
     update_tss_esp(Tss, manager.now->esp0);
+
+    // 切换栈
+    asm volatile(
+        "movl %0, %%eax\n "
+        "movl %%eax, %%esp\n "
+        :
+        : "r"((manager.now->esp0) - sizeof(StackInfo)) // 输入操作数：myVar表示源操作数
+    );
+
     // 切换页表
     switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
-
-    switchProcess();
-
     // 回收进程
     destroyPCB(p);
+
+    switchProcess();
 }
 
 /*
@@ -1078,15 +1170,180 @@ uint16_t createProcess2(uint16_t weight, uint16_t argsLength, char *name, ...)
     switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
     return pid;
 }
+
+extern bool search_file_by_path(char *file_path, uint32_t *ino, uint32_t *file_type);
+extern uint32_t size_of_file(uint32_t inode_no);
+extern int32_t read_file(uint32_t inode_no, uint32_t addr, char *buf, uint32_t size);
+uint16_t createProcess3(uint16_t weight, char *exec_file_path, uint16_t argsLength, ...)
+{
+
+    // path中提取名称
+    char name[20];
+
+    uint32_t path_length = strlen_(exec_file_path);
+    for (int32_t i = path_length - 1; i >= 0; i--)
+    {
+        if (exec_file_path[i] == '/')
+        {
+            if (i == path_length - 1)
+            {
+                return 0;
+            }
+            memcpy_(name, exec_file_path + i + 1, path_length - 1 - i);
+        }
+    }
+
+    // 创建pcb,读取磁盘,设置esp0
+    uint16_t pid = getPID();
+    if (pid == 0)
+    {
+        return 0;
+    }
+
+    // 创建PCB:pcb页,以及0特权级栈
+
+    PCB *pcb = createPCB(name, pid, weight);
+    usePID(pcb, pid);
+
+    // 切换到用户页表项
+    switchUserPage(market.virMemPool, &pcb->u, pcb->pagePAddr, pcb->pageVAddr);
+
+    /*
+        todo 24 1 31:
+        根据名称在磁盘加载用户程序到内存,这里不涉及加载
+        直接将内核某个函数设置为用户程序,同时直接分配内存
+    */
+    uint32_t paddr;
+
+    uint32_t ino;
+    uint32_t ftype;
+    if (!search_file_by_path(exec_file_path, &ino, &ftype))
+    {
+        return 0;
+    }
+    if (ftype != FT_REGULAR)
+    {
+        return 0;
+    }
+
+    uint32_t file_size = size_of_file(ino);
+    if (file_size == 0)
+    {
+        return 0;
+    }
+
+    // 计算要分配多少页
+    uint32_t code_page = file_size % 4096 == 0 ? file_size / 4096 : file_size / 4096 + 1;
+
+    // 分配所需内存
+    uint32_t me = mallocMultpage_u(&market, code_page + 2);
+    StackInfo *s = (StackInfo *)(pcb->esp0 - sizeof(StackInfo));
+    // 读取程序进入内存
+
+    read_file(ino, 0, me, file_size);
+
+    // 初始化0特权级栈
+    initStack(s, 0, (me) + 4096 * (code_page + 2) - 32 - argsLength * sizeof(char) - 4);
+
+    //------todo 24 1 31 -------
+    /*
+        正确性有待具体测试,目前看来缺陷很大
+        根据传入参数个数,将数据压入用户栈中
+    */
+    va_list args;               // 定义参数
+    va_start(args, argsLength); // 初始化
+    memcpy_(s->oldESP + 4, name, argsLength);
+    va_end(args);
+    //-----------------------------
+
+    // 设置pcb为就绪
+    pcb->status = WAIT;
+    // 往就绪队列中加入该pcb
+    insertWait(pcb);
+
+    // 切回原用户
+    switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);
+    return pid;
+}
+void destroy_PCB_waitQ(PCB *pcb)
+{
+    // 是不是应该检查一下删除的pcb是否有效?
+
+    // 从对应的度队列中删除pcb
+    // 现在只有等待队列
+    removeProcess(pcb);
+    // 在父亲节点中删除pcb
+    PCB *f = (PCB *)(pcb->father);
+    deleteNode(&(f->children), &(pcb->tag));
+
+    // 任务列表中删除
+    manager.task[pcb->id] = 0;
+
+    // 处理其子进程,合并到init线程
+    mergeList(&(manager.init->children), &(pcb->children));
+    /*首先回收用户内存
+        // 搜索用户非空页表项
+        // 找到非空页表项,释放其页表项的页目录中物理内存
+        // 释放页目录项对应内存
+    */
+
+    switchUserPage(market.virMemPool, &(pcb->u), pcb->pagePAddr, pcb->pageVAddr);
+    userPageDir *u = &(pcb->u);
+    uint32_t PTPaddr;
+    uint32_t temp;
+    uint16_t count;
+    for (uint16_t i = 0; i < 768; i++)
+    {
+        if (u->PT[i] >= 0)
+        {
+
+            // 获取物理页
+            PTPaddr = getPDE(market.virMemPool, i) >> 12 << 12;
+            // 说明分配有内存,至少分配有页目录
+            if (u->PT[i] > 0)
+            {
+                // 清理页
+                count = 0;
+                for (uint16_t j = 0; j < 1024; j++)
+                {
+
+                    temp = getPTE(PTPaddr, j) & 0xFFFFF000;
+                    if (temp != 0)
+                    {
+                        ReturnPhyPage(market.phyPool, temp);
+                        count++;
+                    }
+                    if (count == u->PT[i])
+                    {
+                        break;
+                    }
+                }
+            }
+            // 归还
+            ReturnPhyPage(market.phyPool, PTPaddr);
+        }
+    }
+
+    switchUserPage(market.virMemPool, &manager.now->u, manager.now->pagePAddr, manager.now->pageVAddr);
+    // 回收页表内存
+    freePage(&market, pcb->pageVAddr);
+    // 回收esp0内存
+    freePage(&market, pcb->esp0);
+    // 回收文件描述符表内存
+    freePage(&market, pcb->file_descriptors);
+    // 回收pcb占用内存
+    freePage(&market, pcb);
+}
 // 将某个pcb占用的内存回收,其他进程对某个进程pcb的回收
+// 进程自己结束自己
 void destroyPCB(PCB *pcb)
 {
     // 是不是应该检查一下删除的pcb是否有效?
 
     // 从对应的度队列中删除pcb
     // 现在只有等待队列 todo : 需要考虑其他队列的情况
-    removeProcess(pcb);
-
+    // 结束进程只可能是自己结束自己,显然不需要去移除pcb
+    // removeProcess(pcb);
     // 在父亲节点中删除pcb
     PCB *f = (PCB *)(pcb->father);
     deleteNode(&(f->children), &(pcb->tag));

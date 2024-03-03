@@ -499,3 +499,14 @@ uint32_t get_file_type(uint32_t fd)
     }
     return FT_UNKNOWN;
 }
+
+// 返回文件大小的函数
+uint32_t get_file_size(uint32_t fd)
+{
+    file_descriptor *all_fd = manager.now->file_descriptors;
+    if (fd < FD_MEM_SIZE / sizeof(file_descriptor) && all_fd[fd].file_type == FT_REGULAR)
+    {
+        return size_of_file(all_fd[fd].ino);
+    }
+    return 0;
+}

@@ -114,6 +114,8 @@ extern bool make_file(uint32_t fd, char *file_name);
 extern bool remove_file(uint32_t fd, char *file_name);
 extern bool remove_dir(uint32_t fd, char *file_name);
 extern uint32_t get_file_type(uint32_t fd);
+extern uint32_t get_file_size(uint32_t fd);
+
 //--
 // partition.c
 extern void read_partition(partition *p, char *buff, uint32_t sec, uint32_t size);
@@ -141,6 +143,9 @@ extern inode *malloc_inode(partition *p);
 extern void free_inode(uint32_t inode_no);
 extern bool return_sector(partition *p, uint32_t sec);
 extern void free_all_resource_inode(uint32_t inode_no);
+extern uint32_t size_of_file(uint32_t inode_no);
+extern void update_inode_size(uint32_t inode_no);
+extern void clear_inode(uint32_t inode_no);
 // extern void free_overflow_resources_inode(uint32_t inode_no);
 
 // directory.c
