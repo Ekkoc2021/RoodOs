@@ -466,3 +466,23 @@ bool make_file(uint32_t fd, char *file_name)
     }
     return false;
 }
+
+bool remove_file(uint32_t fd, char *file_name)
+{
+    file_descriptor *all_fd = manager.now->file_descriptors;
+    if (fd < FD_MEM_SIZE / sizeof(file_descriptor) && all_fd[fd].file_type == FT_DIRECTORY)
+    {
+        return delete_file(all_fd[fd].ino, file_name);
+    }
+    return false;
+}
+
+bool remove_dir(uint32_t fd, char *file_name)
+{
+    file_descriptor *all_fd = manager.now->file_descriptors;
+    if (fd < FD_MEM_SIZE / sizeof(file_descriptor) && all_fd[fd].file_type == FT_DIRECTORY)
+    {
+        return delete_dir(all_fd[fd].ino, file_name);
+    }
+    return false;
+}

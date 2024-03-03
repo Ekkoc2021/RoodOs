@@ -46,7 +46,7 @@ bool init_new_dir(uint32_t root_ino, uint32_t new_i_no)
 
     // 更新inode中的容量大小
     inode *node = load_inode_by_inode_no(new_i_no);
-    node->i_size += 2;
+    node->i_size = 2;
     save_inode(new_i_no);
     return true;
 }
@@ -226,6 +226,11 @@ bool delete_file(uint32_t root_ino, char *file_name)
         {
             if (strcmp_(d_e[i].filename, entry.filename) == 0)
             {
+                if (d_e[i].f_type != FT_REGULAR)
+                {
+                    // 有这条文件记录,但是他不是普通文件
+                    return false;
+                }
 
                 // todo 2/29
                 free_all_resource_inode(d_e[i].i_no);
@@ -243,7 +248,62 @@ bool delete_file(uint32_t root_ino, char *file_name)
     }
     return false;
 }
+// 删除文件夹
+bool delete_dir(uint32_t root_ino, char *dir_name)
+{
+    // 读取文件
+    dir_entry entry;
+    entry.f_type = FT_REGULAR;
+    copy_filename(entry.filename, dir_name);
+    uint32_t sec_index = 0;
+    dir_entry *d_e = dir_buff;
+    int32_t target_sec_index = -1;
+    int32_t entry_index = -1;
 
+    if (strcmp_(".", entry.filename) == 0 || strcmp_("..", entry.filename) == 0)
+    {
+        return false;
+    }
+
+    // todo : 只考虑一个分区的情况
+    partition *p = get_partition_by_inode_no(root_ino);
+
+    while (read_file(root_ino, sec_index, dir_buff, 512) > 0)
+    {
+        for (uint32_t i = 0; i < 512 / 24; i++)
+        {
+            if (strcmp_(d_e[i].filename, entry.filename) == 0)
+            {
+                if (d_e[i].f_type != FT_DIRECTORY)
+                {
+                    // 有这条文件记录,但是他不是文件夹
+                    return false;
+                }
+
+                // 读取这个inode
+                inode *rm_dir_inode = load_inode_by_inode_no(d_e[i].i_no);
+                if (rm_dir_inode == NULL || rm_dir_inode->i_size > 2)
+                {
+                    // 待删除的文件夹应该为空才允许删除
+                    return false;
+                }
+
+                // todo 2/29
+                free_all_resource_inode(d_e[i].i_no);
+                d_e[i].f_type = FT_UNKNOWN;
+                // 更新容量大小
+                inode *node = load_inode_by_inode_no(root_ino);
+                node->i_size -= 1;
+                save_inode(root_ino);
+                // 写回
+                write_file(root_ino, sec_index, dir_buff, 512);
+                return true;
+            }
+        }
+        sec_index++;
+    }
+    return false;
+}
 // 通过文件名称查找文件
 bool search_file_by_name(uint32_t root_ino, char *file_name, dir_entry *dest)
 {

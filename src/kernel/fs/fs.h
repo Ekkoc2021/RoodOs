@@ -111,6 +111,8 @@ extern uint32_t syscall_read_fs(uint32_t fd, uint32_t addr, char *buf, uint32_t 
 extern void syscall_close_fs(uint32_t fd);
 extern bool make_dir(uint32_t fd, char *dir_name);
 extern bool make_file(uint32_t fd, char *file_name);
+extern bool remove_file(uint32_t fd, char *file_name);
+extern bool remove_dir(uint32_t fd, char *file_name);
 //--
 // partition.c
 extern void read_partition(partition *p, char *buff, uint32_t sec, uint32_t size);
@@ -151,6 +153,7 @@ extern bool delete_file(uint32_t root_ino, char *file_name);
 extern bool search_file_by_name(uint32_t root_ino, char *file_name, dir_entry *dest);
 extern bool search_file_by_path(char *file_path, uint32_t *ino, uint32_t *file_type);
 extern void init_direcory();
+extern bool delete_dir(uint32_t root_ino, char *dir_name);
 
 //-- regular.c
 extern void init_regular();

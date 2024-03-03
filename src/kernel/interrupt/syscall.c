@@ -241,5 +241,23 @@ void sys_call(StackInfo *s)
         {
             *(bool *)(s->ECX) = make_file(fp->fd, fp->buf);
         }
-    } // ... 更
+    }
+    else if (s->EAX == 106)
+    {
+        // 删除文件,不是文件夹
+        fp = (file_param *)(s->EBX);
+        if (fp != NULL)
+        {
+            *(bool *)(s->ECX) = remove_file(fp->fd, fp->buf);
+        }
+    }
+    else if (s->EAX == 107)
+    {
+        // 删除文件夹
+        fp = (file_param *)(s->EBX);
+        if (fp != NULL)
+        {
+            *(bool *)(s->ECX) = remove_dir(fp->fd, fp->buf);
+        }
+    }
 }

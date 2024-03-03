@@ -406,6 +406,41 @@ bool make_f(int fd, char *dir_name)
     return return_value;
 }
 
+bool remove_f(int fd, char *file_name)
+{
+    f_param fp;
+    fp.fd = fd;
+    fp.buf = file_name;
+
+    char return_value;
+    asm volatile(
+        "movl $106, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&fp), "r"(&return_value)
+        : "%eax", "%ebx", "%ecx");
+    return return_value;
+}
+
+bool remove_d(int fd, char *dir_name)
+{
+    f_param fp;
+    fp.fd = fd;
+    fp.buf = dir_name;
+
+    char return_value;
+    asm volatile(
+        "movl $107, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&fp), "r"(&return_value)
+        : "%eax", "%ebx", "%ecx");
+    return return_value;
+}
 char file_buff[512];
 char reslove_ls(char *cmd, char *args)
 {
@@ -413,33 +448,72 @@ char reslove_ls(char *cmd, char *args)
     int sec_index = 0;
     dir_en *entries = file_buff;
     int32_t file_count = 0;
+    dir_en output_dir_en_buff[2]; // 输出缓冲区
+    int dir_en_buff_length = 0;
     while (read_f(pwd_fd, file_buff, sec_index, 512) != 0)
     {
-        for (uint32_t i = 0; i < 512 / 24; i++)
+
+        for (int i = 0; i < 512 / 24; i++)
         {
             if (entries[i].f_type != FT_UNKNOWN)
             {
-                char *t;
-                if (entries[i].f_type == FT_REGULAR)
-                {
-                    t = "file";
-                }
-                else
-                {
-                    t = "dir";
-                }
-
-                sprintf_(output_buff, "%s [%s]       ", entries[i].filename, t);
-                write_stdio(output_buff, strlen_(output_buff));
+                memcpy_(output_dir_en_buff + dir_en_buff_length, entries + i, sizeof(dir_en));
                 file_count++;
-                if (file_count % 2 == 0)
+                dir_en_buff_length++;
+                if (dir_en_buff_length == 2)
                 {
-                    write_stdio("\n", 1);
+                    char *t1;
+                    if (output_dir_en_buff[0].f_type == FT_REGULAR)
+                    {
+                        t1 = "file";
+                    }
+                    else
+                    {
+                        t1 = "dir";
+                    }
+                    char *t2;
+                    if (output_dir_en_buff[1].f_type == FT_REGULAR)
+                    {
+                        t2 = "file";
+                    }
+                    else
+                    {
+                        t2 = "dir";
+                    }
+                    // 清空buff 64字节的数据
+                    for (int j = 0; j < 64; j++)
+                    {
+                        output_buff[j] = ' ';
+                    }
+                    output_buff[64] = '\0';
+                    output_buff[63] = '\n';
+                    char *temp_buff = output_buff + 66;
+                    sprintf_(temp_buff, "  %s [%s]", output_dir_en_buff[0].filename, t1);
+                    memcpy_(output_buff, temp_buff, strlen_(temp_buff));
+                    sprintf_(temp_buff, "  %s [%s]", output_dir_en_buff[1].filename, t2);
+                    memcpy_(output_buff + 30, temp_buff, strlen_(temp_buff));
+                    write_stdio(output_buff, strlen_(output_buff));
+                    dir_en_buff_length = 0;
                 }
             }
         }
         sec_index++;
     }
+    if (dir_en_buff_length != 0)
+    {
+        char *t1;
+        if (output_dir_en_buff[0].f_type == FT_REGULAR)
+        {
+            t1 = "file";
+        }
+        else
+        {
+            t1 = "dir";
+        }
+        sprintf_(output_buff, "  %s [%s]", output_dir_en_buff[0].filename, t1);
+        write_stdio(output_buff, strlen_(output_buff));
+    }
+
     sprintf_(output_buff, "\ntotal   %d  \n", file_count);
     write_stdio(output_buff, strlen_(output_buff));
     return 1;
@@ -514,11 +588,75 @@ char reslove_mkfile(char *cmd, char *args)
 }
 char reslove_rm(char *cmd, char *args)
 {
-    write_stdio("rm\n", 3);
+    char *file_name = args;
+    // 解析参数
+    for (int index = 0; index < 256; index++)
+    {
+        if (args[index] == ' ')
+        {
+            file_name = args + index + 1;
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (file_name[0] == '\0')
+    {
+        return 0;
+    }
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (file_name[i] == ' ' || file_name[i] == '\0')
+        {
+            file_name[i] = '\0';
+            break;
+        }
+    }
+
+    if (!remove_f(pwd_fd, file_name))
+    {
+        sprintf_(output_buff, "%s is not a file type \n", file_name);
+        write_stdio(output_buff, strlen_(output_buff));
+    }
 }
 char reslove_rmdir(char *cmd, char *args)
 {
-    write_stdio("rmdir\n", 6);
+    char *dir_name = args;
+    // 解析参数
+    for (int index = 0; index < 256; index++)
+    {
+        if (args[index] == ' ')
+        {
+            dir_name = args + index + 1;
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (dir_name[0] == '\0')
+    {
+        return 0;
+    }
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (dir_name[i] == ' ' || dir_name[i] == '\0')
+        {
+            dir_name[i] = '\0';
+            break;
+        }
+    }
+
+    if (!remove_d(pwd_fd, dir_name))
+    {
+        sprintf_(output_buff, "%s is not a directory type \n", dir_name);
+        write_stdio(output_buff, strlen_(output_buff));
+    }
 }
 
 char reslove_exec(char *cmd, char *args)
