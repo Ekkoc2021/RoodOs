@@ -334,8 +334,8 @@ typedef struct dir_entry
     enum f_types f_type; // 文件类型
 } dir_en;
 
-int pwd_fd; // 当前位置的文件描述符
-
+int work_dir_fd;    // 当前位置的文件描述符
+char work_dir[256]; // 当前所在位置
 unsigned int open_f(char *file_path)
 {
     unsigned int return_value;
@@ -349,6 +349,18 @@ unsigned int open_f(char *file_path)
         : "%eax", "%ebx", "%ecx");
     return return_value;
 }
+
+void close_f(int fd)
+{
+    asm volatile(
+        "movl $103, %%eax\n"
+        "movl %0, %%ebx\n"
+        "int $0x30\n"
+        :
+        : "r"(fd)
+        : "%eax", "%ebx");
+}
+
 // sector 扇区
 int read_f(int fd, char *buff, int sector, int size)
 {
@@ -424,6 +436,21 @@ bool remove_f(int fd, char *file_name)
     return return_value;
 }
 
+unsigned int get_ft(int fd)
+{
+    f_param fp;
+    fp.fd = fd;
+    unsigned int return_value;
+    asm volatile(
+        "movl $108, %%eax\n"
+        "movl %0, %%ebx\n"
+        "movl %1, %%ecx\n"
+        "int $0x30\n"
+        :
+        : "r"(&fp), "r"(&return_value)
+        : "%eax", "%ebx", "%ecx");
+    return return_value;
+}
 bool remove_d(int fd, char *dir_name)
 {
     f_param fp;
@@ -450,7 +477,7 @@ char reslove_ls(char *cmd, char *args)
     int32_t file_count = 0;
     dir_en output_dir_en_buff[2]; // 输出缓冲区
     int dir_en_buff_length = 0;
-    while (read_f(pwd_fd, file_buff, sec_index, 512) != 0)
+    while (read_f(work_dir_fd, file_buff, sec_index, 512) != 0)
     {
 
         for (int i = 0; i < 512 / 24; i++)
@@ -520,7 +547,123 @@ char reslove_ls(char *cmd, char *args)
 }
 char reslove_cd(char *cmd, char *args)
 {
-    write_stdio("cd\n", 3);
+
+    // 处理args
+    char *file_path = args;
+    // 解析参数
+    for (int index = 0; index < 256; index++)
+    {
+        if (args[index] == ' ')
+        {
+            file_path = args + index + 1;
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (file_path[0] == '\0')
+    {
+        return 0;
+    }
+    int work_dir_length = strlen_(work_dir);
+    for (int i = 0; i < 256; i++)
+    {
+        if (file_path[i] == ' ' || file_path[i] == '\0')
+        {
+            file_path[i] = '\0';
+            if (file_path[i - 1] == '/')
+            {
+                // 处理 /hello/ 的情况
+                if (i != 1)
+                {
+                    file_path[i - 1] = '\0';
+                }
+            }
+            break;
+        }
+    }
+    if (strcmp_(".", file_path) == 0)
+    {
+        return true;
+    }
+    if (strcmp_("..", file_path) == 0)
+    {
+
+        if (work_dir[work_dir_length - 1] == '/')
+        {
+            return true;
+        }
+
+        // 找到最后一个 / 重置为 \0
+        for (int i = work_dir_length - 1; i >= 0; i--)
+        {
+            if (work_dir[i] == '/')
+            {
+                close_f(work_dir_fd); // 关闭原来的fd
+                // file_buff得到新的工作目录
+                if (i == 0)
+                {
+                    work_dir[1] = '\0';
+                }
+                else
+                {
+                    work_dir[i] = '\0';
+                }
+                work_dir_fd = open_f(work_dir);
+                return true;
+            }
+        }
+    }
+
+    // 判断是否基于当前目录
+    if (file_path[0] != '/')
+    {
+        // 基于当前目录
+        if (work_dir_length == 1)
+        {
+            sprintf_(file_buff, "/%s", file_path);
+        }
+        else
+        {
+            sprintf_(file_buff, "%s/%s", work_dir, file_path);
+        }
+    }
+    else
+    {
+        sprintf_(file_buff, file_path);
+        if (strcmp_(file_buff, work_dir) == 0)
+        {
+            return true;
+        }
+    }
+
+    // file_buff得到新的工作目录
+    int new_fd = open_f(file_buff);
+
+    if (new_fd == 1024)
+    {
+        // 检查文件描述符是否有效
+        sprintf_(output_buff, "cd: No such directory (%s)\n", file_buff);
+        write_stdio(output_buff, strlen_(output_buff));
+        return false;
+    }
+    // 检查文件类型是否是文件夹
+    unsigned int ft = get_ft(new_fd);
+    if (ft != FT_DIRECTORY)
+    {
+        // 检查文件描述符是否有效
+        sprintf_(output_buff, "cd: No such directory (%s)\n", file_buff);
+        write_stdio(output_buff, strlen_(output_buff));
+        close_f(new_fd);
+        return false;
+    }
+
+    // 满足切换条件
+    close_f(work_dir_fd); // 关闭原来的fd
+    work_dir_fd = new_fd;
+    strcpy_(work_dir, file_buff);
+    return true;
 }
 char reslove_mkdir(char *cmd, char *args)
 {
@@ -552,7 +695,7 @@ char reslove_mkdir(char *cmd, char *args)
         }
     }
 
-    return make_d(pwd_fd, file_name);
+    return make_d(work_dir_fd, file_name);
 }
 char reslove_mkfile(char *cmd, char *args)
 {
@@ -584,7 +727,7 @@ char reslove_mkfile(char *cmd, char *args)
         }
     }
 
-    return make_f(pwd_fd, file_name);
+    return make_f(work_dir_fd, file_name);
 }
 char reslove_rm(char *cmd, char *args)
 {
@@ -616,7 +759,7 @@ char reslove_rm(char *cmd, char *args)
         }
     }
 
-    if (!remove_f(pwd_fd, file_name))
+    if (!remove_f(work_dir_fd, file_name))
     {
         sprintf_(output_buff, "%s is not a file type \n", file_name);
         write_stdio(output_buff, strlen_(output_buff));
@@ -652,7 +795,7 @@ char reslove_rmdir(char *cmd, char *args)
         }
     }
 
-    if (!remove_d(pwd_fd, dir_name))
+    if (!remove_d(work_dir_fd, dir_name))
     {
         sprintf_(output_buff, "%s is not a directory type \n", dir_name);
         write_stdio(output_buff, strlen_(output_buff));
@@ -738,18 +881,17 @@ void shell()
     char cmd_str[256]; // 最多256个字符,不能再多了
     int cmd_length;
     char *prompt = "roodOs@ekko>";
-    char pwd[256]; // 当前所在位置
 
-    pwd[0] = '/';
-    pwd[1] = '\0';
-    pwd_fd = open_f(pwd);
+    work_dir[0] = '/';
+    work_dir[1] = '\0';
+    work_dir_fd = open_f(work_dir);
     open_stdio();
 
     while (1)
     {
         // 写入标识
         cmd_length = 0;
-        sprintf_(output_buff, "%s:%s >", prompt, pwd);
+        sprintf_(output_buff, "%s:%s >", prompt, work_dir);
         write_stdio(output_buff, strlen_(output_buff));
 
         while (1)

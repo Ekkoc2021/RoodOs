@@ -354,7 +354,6 @@ bool search_file_by_path(char *file_path, uint32_t *ino, uint32_t *file_type)
     // 解析file_path
     char temp_file_name[MAX_FILE_NAME_LEN];
 
-    // 应该不会有超过4096个字符的路径
     char j = 0; // temp_file_name的下标
     for (uint32_t i = 0; i < 1024; i++)
     {

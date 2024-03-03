@@ -260,4 +260,13 @@ void sys_call(StackInfo *s)
             *(bool *)(s->ECX) = remove_dir(fp->fd, fp->buf);
         }
     }
+    else if (s->EAX == 108)
+    {
+        // 删除文件夹
+        fp = (file_param *)(s->EBX);
+        if (fp != NULL)
+        {
+            *(unsigned int *)(s->ECX) = get_file_type(fp->fd);
+        }
+    }
 }

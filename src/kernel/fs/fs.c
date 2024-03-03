@@ -218,8 +218,11 @@ void close_file(uint32_t inode_no)
 {
     // 打开当前inode,计数器加1,然后保存数据
     inode *ino = load_inode_by_inode_no(inode_no);
-    ino->i_open_cnts--;
-    save_inode(inode_no);
+    if (ino->i_open_cnts != 0)
+    {
+        ino->i_open_cnts--;
+        save_inode(inode_no);
+    }
 }
 
 // inode.c的函数测试
@@ -485,4 +488,14 @@ bool remove_dir(uint32_t fd, char *file_name)
         return delete_dir(all_fd[fd].ino, file_name);
     }
     return false;
+}
+
+uint32_t get_file_type(uint32_t fd)
+{
+    file_descriptor *all_fd = manager.now->file_descriptors;
+    if (fd < FD_MEM_SIZE / sizeof(file_descriptor))
+    {
+        return all_fd[fd].file_type;
+    }
+    return FT_UNKNOWN;
 }

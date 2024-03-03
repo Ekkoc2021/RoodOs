@@ -113,6 +113,7 @@ extern bool make_dir(uint32_t fd, char *dir_name);
 extern bool make_file(uint32_t fd, char *file_name);
 extern bool remove_file(uint32_t fd, char *file_name);
 extern bool remove_dir(uint32_t fd, char *file_name);
+extern uint32_t get_file_type(uint32_t fd);
 //--
 // partition.c
 extern void read_partition(partition *p, char *buff, uint32_t sec, uint32_t size);
