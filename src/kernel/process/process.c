@@ -1116,15 +1116,19 @@ void function()
 // 进程结束
 void exit_pro()
 {
+    // 切换栈
+    asm volatile(
+        "movl %0, %%eax\n "
+        "movl %%eax, %%esp\n "
+        :
+        : "r"((manager.init->esp0) - sizeof(StackInfo)) // 输入操作数：myVar表示源操作数
+        : "%eax");
+
     manager.ticks++;
 
     PCB *p = manager.now;
     p->runtime++;
     // 判断是否要切换
-    if (p->runtime <= p->weight)
-    {
-        return;
-    }
     p->vruntime++;
     p->runtime = 0;
     p->status = END;
@@ -1136,14 +1140,6 @@ void exit_pro()
     manager.now->status = RUNNING;
     // 修改tss 0特权级栈
     update_tss_esp(Tss, manager.now->esp0);
-
-    // 切换栈
-    asm volatile(
-        "movl %0, %%eax\n "
-        "movl %%eax, %%esp\n "
-        :
-        : "r"((manager.now->esp0) - sizeof(StackInfo)) // 输入操作数：myVar表示源操作数
-    );
 
     // 切换页表
     switchUserPage(market.virMemPool, &(manager.now->u), manager.now->pagePAddr, manager.now->pageVAddr);

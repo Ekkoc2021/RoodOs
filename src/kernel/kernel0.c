@@ -38,13 +38,11 @@ int main(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePh
     // 用户进程一阻塞在弹出GS寄存器时出现了异常,估计是init进程栈的问题
     // 用下面这个进程充当init进程
     char *name = "init";
-    createProcess(1, strlen_(name), name);
-
-    // char *name2 = "shell2";
-    // createProcess(1, strlen_(name2), name2);
+    createProcess(2, strlen_(name), name);
+    char *name2 = "shell2";
+    createProcess2(2, strlen_(name2), name2);
     char *name3 = "shell3";
     createProcess2(3, strlen_(name3), name3);
-
     switch_to_user_mode();
 }
 void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePhAddr)
