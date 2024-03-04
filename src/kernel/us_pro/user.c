@@ -626,8 +626,6 @@ char reslove_rmdir(char *cmd, char *args)
 
 char reslove_exec(char *cmd, char *args)
 {
-    // 不考虑多级的情况!
-
     // 处理args
     char *exec_file_name = args;
     // 解析参数
@@ -696,7 +694,7 @@ char reslove_exec(char *cmd, char *args)
     if (new_fd == 1024)
     {
         // 检查文件描述符是否有效
-        sprintf_(output_buff, "cd: No such file (%s)\n", file_buff);
+        sprintf_(output_buff, "exec: No such file (%s)\n", file_buff);
         write_stdio(output_buff, strlen_(output_buff));
         return false;
     }
@@ -705,7 +703,7 @@ char reslove_exec(char *cmd, char *args)
     if (ft != FT_REGULAR)
     {
         // 检查文件描述符是否有效
-        sprintf_(output_buff, "cd: No such file (%s)\n", file_buff);
+        sprintf_(output_buff, "exec: No such file (%s)\n", file_buff);
         write_stdio(output_buff, strlen_(output_buff));
         close_f(new_fd);
         return false;
@@ -842,7 +840,6 @@ void shell()
         // 不提供退出命令行的方式
     }
 }
-
 void *malloc_page(unsigned int page_size)
 {
     void *return_value;
@@ -866,7 +863,15 @@ void exit()
         :
         :);
 }
-int main()
+char *banner =
+    "         ____                                   ___              ________  \n"
+    "       /  ___ \\     ____       _____           /  /   ____     / ________/\n"
+    "      / /__ / /  /   ___  \\   /  ___ \\    ____/  /  / ____ \\  / /_____\n"
+    "     /____  /   / /    / /  / /    / /  /  __   /  / /    \\ | |_____  \\\n"
+    "    / /  \\ |   / /____/ /  / /____/ /  / /__/  /  / /____/ / ______/  /\n"
+    "   /_/    \\_\\  \\_______/   \\_______/  |_______/   \\_______/ /________/ \n\n"
+    "                                                              20240304-V0.0.1\n\n";
+main()
 {
     // int i = 0;
     // // exit();
@@ -878,18 +883,9 @@ int main()
     // char *bu = malloc_page(3);
     // readDis(bu, 10, 500);
     // write_f(fd, bu, 0, 3 * 4096);
-
+    print("\n  welcome !\n");
+    print(banner);
     shell();
-    // int i = 0;
-    // char buff[128];
-    // // print("Test successful !\n");
-    // // exit();
-    // while (1)
-    // {
-    //     i++;
-    //     sprintf_(buff, "i=%d\n", i);
-    //     // print(buff);
-    // }
 
     return 0;
 }

@@ -72,6 +72,7 @@ void sys_call(StackInfo *s)
         initSem(s->EBX, s->ECX);
     }
     else if (s->EAX == 51)
+
     {
         sem_open(s->EBX);
     }
