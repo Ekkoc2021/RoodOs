@@ -13,17 +13,6 @@
 
 // 数据结构在《操作系统真相还原》一书的基础上修改
 
-/* 文件类型 */
-enum file_types
-{
-    FT_UNKNOWN,   // 不支持的文件类型
-    FT_REGULAR,   // 普通文件
-    FT_DIRECTORY, // 目录
-    DEVICE,       // 设备
-    PARTITION,    // 挂载的分区
-};
-/* inode结构 */
-
 typedef struct
 {
     uint32_t i_no; // inode编号,

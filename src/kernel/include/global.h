@@ -2,6 +2,16 @@
 #define __KERNEL_GLOBAL_H
 #include "types.h"
 #include "memory.h"
+/* 文件类型 */
+enum file_types
+{
+    FT_UNKNOWN,   // 不支持的文件类型
+    FT_REGULAR,   // 普通文件
+    FT_DIRECTORY, // 目录
+    DEVICE,       // 设备
+    PARTITION,    // 挂载的分区
+};
+/* inode结构 */
 typedef struct
 {
     uint32_t IVN;
