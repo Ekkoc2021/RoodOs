@@ -10,10 +10,21 @@ void print(char *mess)
         : "r"(mess)
         : "%eax", "%ebx");
 }
+void exit()
+{
+    asm volatile(
+        "movl $12, %%eax\n"
+        "int $0x30\n"
+        :
+        :
+        :);
+}
 int main()
 {
     int i = 0;
     char buff[128];
+    // print("Test successful !\n");
+    // exit();
     while (1)
     {
         i++;

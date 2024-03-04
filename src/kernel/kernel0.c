@@ -40,9 +40,9 @@ int main(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePh
     char *name = "init";
     createProcess(2, strlen_(name), name);
     char *name2 = "shell2";
-    createProcess2(2, strlen_(name2), name2);
+    createProcess2(1, strlen_(name2), name2);
     char *name3 = "shell3";
-    createProcess2(3, strlen_(name3), name3);
+    createProcess2(1, strlen_(name3), name3);
     switch_to_user_mode();
 }
 void init_all_module(int memCount, uint32_t memAddr, uint32_t KernelVAddr, uint32_t pTablePhAddr)

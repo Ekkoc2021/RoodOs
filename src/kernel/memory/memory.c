@@ -69,6 +69,10 @@ memoryMarket *initMemoryManagement(uint32_t size, void *addr, void *kernelVAddr,
     ASSERT(kernelPDEMapping(&market)); // 内存不够就映射失败!
     log("--memory module init successful! --\n");
     showPool(PhyPool);
+
+    // 24/3/4 内存分配存在严重问题,导致整个系统崩溃
+    uint32_t p_t;
+    p_t = mallocPage_k(&market, &p_t);
     return &market;
 }
 
@@ -138,6 +142,7 @@ uint32_t mallocPage_k(memoryMarket *market, uint32_t *paddr)
     char status = BeSureDisable_irq();
     // 分配物理页
     uint32_t phyPage = getPhyPage(market->phyPool);
+
     *paddr = phyPage;
     if (phyPage == 0x0)
     {
@@ -204,7 +209,6 @@ void freePage(memoryMarket *market, uint32_t vAddr)
 
     // 获得对应PTE包含的物理地址
     uint32_t paddr = getPTE(PTPAddr, indexOfPT) & (~PAGEATTR);
-
     ReturnPhyPage(market->phyPool, paddr);
 
     // 设置对应PTE条目

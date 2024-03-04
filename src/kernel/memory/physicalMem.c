@@ -44,17 +44,27 @@ void showPool(memPool *p)
 memPool *initPhysicalMem(e820map *e)
 {
     log("-- Physical memory initialization... --\n");
-    phyPool.map.bits = (char *)(START + OFFSET);
+    phyPool.map.bits = (char *)(START + OFFSET); // 默认bitmap地址
+    // 分配可用内存块存放地址
     phyPool.e = (availableMem *)(e->entries + e->length);
+    // 初始化可用内存块
     phyPool.e->size = 0;
+    // 设置 可用内存块起始位置
     phyPool.e->memBlocks = (block *)(phyPool.e + 1);
+
+    // 内存数量统计
     uint32_t meCount = 0;
     log("Block of memory:%d\n", e->length);
+    // 可用内存数量统计
     uint16_t availableCount = 0;
+    // bitmap数量
     uint32_t totalBitSize = 0;
+
     char buff[128];
+
     for (uint16_t i = 0; i < e->length; i++)
     {
+
         iToHexStr((e->entries[i]).addr, buff);
         log("  addr: 0x%s\\%d ", buff, (e->entries[i]).addr);
         log("  size: %d B ", (e->entries[i]).size);
@@ -62,7 +72,7 @@ memPool *initPhysicalMem(e820map *e)
 
         if (e->entries[i].type == 1)
         {
-
+            // 选出可用内存
 #ifdef IGNORE1MBMEM
             if (e->entries[i].addr < 0x100000)
             {
@@ -79,7 +89,7 @@ memPool *initPhysicalMem(e820map *e)
             uint16_t m = e->entries[i].addr % 4096;
             if (m != 0)
             {
-                e->entries[i].addr = (e->entries[i].addr + 4096) / 4096;
+                e->entries[i].addr = ((e->entries[i].addr + 4096) / 4096) * 4096;
                 e->entries[i].size = e->entries[i].size - (4096 - m);
             }
 
@@ -136,7 +146,7 @@ memPool *initPhysicalMem(e820map *e)
 uint32_t initKernelPhysicalMem(memPool *phyPool)
 {
     // 初始化内核占用物理内存
-    uint32_t maxVaddr = (uint32_t)(((block *)phyPool->indexList.data) + phyPool->indexList.length);
+    uint32_t maxVaddr = (uint32_t)(((indexNode *)phyPool->indexList.data) + phyPool->indexList.length);
     uint32_t pageSize = (maxVaddr - START) % 4096 == 0 ? (maxVaddr - START) / 4096 : (maxVaddr - START) / 4096 + 1;
     log("size of the kernel: %d Page \n", pageSize);
 
@@ -200,6 +210,12 @@ uint32_t getPhyPage(memPool *p)
     }
     // 足够
     Bitmap *bitmap = &(temp->indexBit);
+    char *i = bitmap->bits;
+    if (index == 0)
+    {
+        log("index%d , bit:%d \n", index, *i);
+    }
+
     uint32_t indexOfBitmap = find_fist_bit(bitmap) + temp->startIndexOfBitmap; // 在全局的索引
     // log("index of bitmap %d \n", indexOfBitmap);
     setBit(bitmap, indexOfBitmap - temp->startIndexOfBitmap);
@@ -210,6 +226,12 @@ uint32_t getPhyPage(memPool *p)
     // log("the max index of memory block : %d", indexOfBlock);
     // log("block %d,indexOfBitmap %d,indexOfBlock %d \n", index, indexOfBitmap, indexOfBlock);
     // log("p mem :%p \n", p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096);
+    if (p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096 == 1048576 || p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096 == 1048572)
+    {
+        log("----\n");
+    }
+    log("malloc phy %d \n", p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096);
+
     return p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096;
 }
 
@@ -229,6 +251,11 @@ uint32_t phyAddrToMemBlocks(memPool *p, uint32_t phyAdd)
 uint32_t ReturnPhyPage(memPool *p, uint32_t phyAddr)
 {
     uint32_t pageAddr = phyAddr & 0xFFFFF000;
+    if (phyAddr == 1048576 || phyAddr == 1052672)
+    {
+        log("g\n");
+    }
+    log("return phyAddr %d \n", phyAddr);
     // 查找在那个大物理块
     uint32_t indexOfblock = phyAddrToMemBlocks(p, pageAddr);
     // 从大物理块中推导出在那个索引表中
@@ -236,8 +263,14 @@ uint32_t ReturnPhyPage(memPool *p, uint32_t phyAddr)
     // 从索引表清除位
     // 找到对应索引表d
     uint32_t indexOfIndexList = indexOfBitmap / (8 * 1024);
-    Bitmap *b = &((indexNode *)(p->indexList.data))[indexOfIndexList].indexBit;
-    clearBit(b, indexOfBitmap - p->e->memBlocks[indexOfblock].bitMinIndex);
+    indexNode *indexN = ((indexNode *)(p->indexList.data)) + indexOfIndexList;
+    Bitmap *b = &(indexN->indexBit);
+    if (indexOfIndexList == 0)
+    {
+        log("r:index%d , bit:%d \n", indexOfIndexList, (char *)b->bits);
+    }
+
+    clearBit(b, indexOfBitmap - indexN->startIndexOfBitmap);
     p->map.used--;
     // log("free 0x%p,indexOfBlock %d,indexOfBitmap %d,indexofIndexList %d\n", pageAddr, indexOfblock, indexOfBitmap, indexOfIndexList);
     // 修改总bitmap的used数据

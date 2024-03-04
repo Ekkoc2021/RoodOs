@@ -196,6 +196,7 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
     {
         pcb->u.PT[i] = -1;
     }
+
     pcb->father = manager.now;
     initLinkedList(&(pcb->children)); // 初始化孩子链表
     pcb->blockTag.data = pcb;
@@ -1093,23 +1094,24 @@ void exit()
 extern uint16_t createProcess3(uint16_t weight, char *exec_file_path, uint16_t argsLength, ...);
 void function()
 {
-    for (int i = 0; i < 100; i++)
-    {
-        exec_(7, "/test", 0);
-    }
+    // for (int i = 0; i < 100; i++)
+    // {
+    //     exec_(7, "/test", 0);
+    // }
 
     shell();
+
     // int fd = open_f("/test");
     // char *bu = malloc_page(3);
-    // readDis(bu, 10, 410);
+    // readDis(bu, 10, 430);
     // write_f(fd, bu, 0, 3 * 4096);
 
-    // int i = 0;
+    int i = 0;
     // exit();
-    // while (1)
-    // {
-    //     i++;
-    // }
+    while (1)
+    {
+        i++;
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -1289,6 +1291,11 @@ uint16_t createProcess3(uint16_t weight, char *exec_file_path, uint16_t argsLeng
     // 创建PCB:pcb页,以及0特权级栈
 
     PCB *pcb = createPCB(name, pid, weight);
+    if (pcb == NULL)
+    {
+        return 0;
+    }
+
     usePID(pcb, pid);
 
     // 切换到用户页表项

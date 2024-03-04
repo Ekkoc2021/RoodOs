@@ -101,11 +101,11 @@ void initIntr_name()
 void logStackInfo(StackInfo *s)
 {
     log("Stack info:\n interrupt vector number: %d\n"
-        " general register: \n      EDI=%d \n      ESI=%d \n      EBP=%d \n      ESP=%d \n      EBX=%d \n      EDX=%d \n      ECX=%d \n      EAX=%d \n"
+        " general register: \n      EDI=%d \n      ESI=%d \n      EBP=%d \n      ESP=%d \n      EBX=%d \n      EDX=%d \n      ECX=%d \n      EAX=%d \n      EIP=%d \n"
         " segment registers: \n      GS=%d \n      FS=%d \n      ES=%d \n      DS=%d\n"
         " error code: %d\n",
         s->IVN,
-        s->EDI, s->ESI, s->EBP, s->newESP, s->EBX, s->EDX, s->ECX, s->EAX,
+        s->EDI, s->ESI, s->EBP, s->newESP, s->EBX, s->EDX, s->ECX, s->EAX, s->EIP,
         s->GS, s->FS, s->ES, s->DS,
 
         s->ERROCODE);
