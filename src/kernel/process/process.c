@@ -133,6 +133,11 @@ PCB *createPCB(char *name, uint32_t id, uint16_t weight)
     {
         return 0; // 分配pcb的内存都不够
     }
+    // 清空pcb是必要的,因为会有数据残留,用户页表的数据残留会导致内存分配存在问题
+    for (uint32_t i = 0; i < 4096 / sizeof(uint32_t); i++)
+    {
+        ((uint32_t *)pcbm)[i] = 0;
+    }
 
     // 创建pcb
     uint32_t s0 = mallocPage_k(&market, &paddr);

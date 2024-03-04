@@ -211,10 +211,6 @@ uint32_t getPhyPage(memPool *p)
     // 足够
     Bitmap *bitmap = &(temp->indexBit);
     char *i = bitmap->bits;
-    if (index == 0)
-    {
-        log("index%d , bit:%d \n", index, *i);
-    }
 
     uint32_t indexOfBitmap = find_fist_bit(bitmap) + temp->startIndexOfBitmap; // 在全局的索引
     // log("index of bitmap %d \n", indexOfBitmap);
@@ -226,12 +222,6 @@ uint32_t getPhyPage(memPool *p)
     // log("the max index of memory block : %d", indexOfBlock);
     // log("block %d,indexOfBitmap %d,indexOfBlock %d \n", index, indexOfBitmap, indexOfBlock);
     // log("p mem :%p \n", p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096);
-    if (p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096 == 1048576 || p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096 == 1048572)
-    {
-        log("----\n");
-    }
-    log("malloc phy %d \n", p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096);
-
     return p->e->memBlocks[indexOfBlock].addr + (indexOfBitmap - p->e->memBlocks[indexOfBlock].bitMinIndex) * 4096;
 }
 
@@ -251,11 +241,6 @@ uint32_t phyAddrToMemBlocks(memPool *p, uint32_t phyAdd)
 uint32_t ReturnPhyPage(memPool *p, uint32_t phyAddr)
 {
     uint32_t pageAddr = phyAddr & 0xFFFFF000;
-    if (phyAddr == 1048576 || phyAddr == 1052672)
-    {
-        log("g\n");
-    }
-    log("return phyAddr %d \n", phyAddr);
     // 查找在那个大物理块
     uint32_t indexOfblock = phyAddrToMemBlocks(p, pageAddr);
     // 从大物理块中推导出在那个索引表中
@@ -265,11 +250,6 @@ uint32_t ReturnPhyPage(memPool *p, uint32_t phyAddr)
     uint32_t indexOfIndexList = indexOfBitmap / (8 * 1024);
     indexNode *indexN = ((indexNode *)(p->indexList.data)) + indexOfIndexList;
     Bitmap *b = &(indexN->indexBit);
-    if (indexOfIndexList == 0)
-    {
-        log("r:index%d , bit:%d \n", indexOfIndexList, (char *)b->bits);
-    }
-
     clearBit(b, indexOfBitmap - indexN->startIndexOfBitmap);
     p->map.used--;
     // log("free 0x%p,indexOfBlock %d,indexOfBitmap %d,indexofIndexList %d\n", pageAddr, indexOfblock, indexOfBitmap, indexOfIndexList);
